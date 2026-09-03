@@ -5,6 +5,27 @@
 > Project status: W8A8 runtime-extension prototype and NPU E2E are available;
 > the Extension Manager manifest/provider API is awaiting framework-team review.
 
+## 中文设计入口
+
+首次了解本项目，建议按以下顺序阅读：
+
+1. [中文设计概览](docs/design-overview.zh-CN.md)
+2. [文档导航](docs/README.md)
+3. [当前 vLLM-Ascend 量化架构](docs/current-vllm-ascend-quant-architecture.md)
+4. [Runtime Extension 详细设计](docs/runtime-plugin-design.md)
+5. [Extension Manager 对接契约](docs/extension-manager-handoff.md)
+6. [验收矩阵](docs/acceptance-matrix.md)
+
+当前状态：
+
+- W8A8 PDMix 的 Toolkit → Runtime Extension → Ascend NPU 推理已验证；
+- Runtime Extension 原型、产物契约和 fail-closed 校验已实现；
+- Extension Manager 正式接入及 vLLM-Ascend 公共 Scheme API 待框架团队评审；
+- W4A4/W4A8 尚未声明为真实硬件验证能力。
+
+跨团队设计评审和待确认接口记录在
+[Issue #1](https://github.com/jxd1111/Ascend-LLM-quant/issues/1)。
+
 Design is the gate for further runtime extraction. Start with:
 
 - [`docs/current-vllm-ascend-quant-architecture.md`](docs/current-vllm-ascend-quant-architecture.md)
