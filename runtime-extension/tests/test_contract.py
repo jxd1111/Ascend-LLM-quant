@@ -211,11 +211,28 @@ def test_model_mismatch_fails_closed(tmp_path: Path):
         validate_artifact(tmp_path, check_software=False)
 
 
-def test_incompatible_software_fails_closed(tmp_path: Path):
+def test_incompatible_software_fails_closed(tmp_path: Path, monkeypatch):
     contract = make_artifact(tmp_path)
     contract["software"]["cann"] = ">=99"
     (tmp_path / "ascend_quant_artifact.json").write_text(json.dumps(contract))
+    monkeypatch.setattr(
+        "vllm_ascend_quant_ext.contract._cann_version",
+        lambda: "8.5.0",
+    )
     with pytest.raises(ContractError, match="incompatible CANN"):
+        validate_artifact(tmp_path, check_software=True)
+
+
+def test_missing_cann_fails_closed(tmp_path: Path, monkeypatch):
+    make_artifact(tmp_path)
+    monkeypatch.setattr(
+        "vllm_ascend_quant_ext.contract._cann_version",
+        lambda: None,
+    )
+    with pytest.raises(
+        ContractError,
+        match="cannot determine installed CANN version",
+    ):
         validate_artifact(tmp_path, check_software=True)
 
 
