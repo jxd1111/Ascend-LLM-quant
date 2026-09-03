@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "replace-me",
+  "profile": "W8A8",
+  "artifact": {
+    "model": "replace-me",
+    "artifact_id": "replace-me",
+    "contract_sha256": "replace-with-64-hex-characters"
+  },
+  "software": {
+    "cann": "8.5.0",
+    "torch_npu": "2.9.0",
+    "vllm": "replace-me",
+    "vllm_ascend": "replace-me",
+    "extension": "0.3.0"
+  },
+  "hardware": {
+    "npu_model": "910B3",
+    "npu_count": 1,
+    "tensor_parallel": 1,
+    "device_ids": [7]
+  },
+  "workload": {
+    "dataset": "ShareGPT-V3",
+    "dataset_revision": "replace-me",
+    "dataset_sha256": "replace-with-64-hex-characters",
+    "prompts": 200,
+    "request_rate": 8.0,
+    "max_concurrency": 80,
+    "input_tokens": "dataset-defined",
+    "output_tokens": "dataset-defined",
+    "warmup_runs": 1,
+    "recorded_runs": 3
+  },
+  "results": {
+    "successful": 0,
+    "failed": 0,
+    "correctness": {"passed": false, "metric": "replace-me", "value": 0.0, "tolerance": 0.0},
+    "quality": {"metric": "ppl", "value": 0.0, "bf16_delta": 0.0},
+    "throughput": {"requests_per_second": 0.0, "output_tokens_per_second": 0.0, "total_tokens_per_second": 0.0},
+    "latency": {"mean_ttft_ms": 0.0, "p99_ttft_ms": 0.0, "mean_tpot_ms": 0.0, "p99_tpot_ms": 0.0},
+    "hbm": {"idle_mib": 0, "loaded_mib": 0, "peak_mib": 0}
+  },
+  "raw_logs": ["replace-me"]
+}

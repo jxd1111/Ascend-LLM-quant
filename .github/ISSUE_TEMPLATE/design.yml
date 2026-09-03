@@ -1,0 +1,40 @@
+name: Runtime plugin design
+description: Propose a runtime API, artifact, algorithm, or lifecycle change
+title: "[Design] "
+labels: ["design"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and evidence
+      description: Describe the measured problem and current ownership.
+    validations:
+      required: true
+  - type: textarea
+    id: io
+    attributes:
+      label: Proposed input and output
+      description: Include types, shapes, dtypes, errors and versioning.
+    validations:
+      required: true
+  - type: textarea
+    id: lifecycle
+    attributes:
+      label: Startup and lifecycle
+      description: Explain discover/check/plan/render/start/disable/uninstall.
+    validations:
+      required: true
+  - type: textarea
+    id: ownership
+    attributes:
+      label: Ownership and dependencies
+      description: Identify Toolkit, plugin, Manager and vLLM-Ascend responsibilities.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance tests
+      description: List correctness, failure, performance and rollback gates.
+    validations:
+      required: true

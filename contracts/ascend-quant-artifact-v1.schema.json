@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vllm-hust.example/contracts/ascend-quant-artifact-v1.schema.json",
+  "title": "Ascend Quantized Model Artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "artifact_id", "format", "model", "quantization",
+    "runtime", "software", "files", "evidence"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string", "minLength": 1},
+    "format": {"const": "modelslim-ascend-v1"},
+    "model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model_type", "architectures", "supported_shapes"],
+      "properties": {
+        "model_type": {"type": "string", "minLength": 1},
+        "architectures": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "supported_shapes": {
+          "type": "object", "additionalProperties": false,
+          "required": ["weight_rank", "input_multiple", "output_multiple"],
+          "properties": {
+            "weight_rank": {"const": 2},
+            "input_multiple": {"type": "integer", "minimum": 1},
+            "output_multiple": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "quantization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scheme", "producer_quant_type", "runtime_quant_type", "weight", "activation", "scale", "zero_point"],
+      "properties": {
+        "scheme": {"enum": ["W8A8", "W4A4", "W4A8"]},
+        "producer_quant_type": {"type": "string", "minLength": 1},
+        "runtime_quant_type": {"type": "string", "minLength": 1},
+        "weight": {
+          "type": "object", "additionalProperties": false,
+          "required": ["bits", "storage_dtype", "signed", "packing", "layout", "granularity", "axis", "group_size"],
+          "properties": {
+            "bits": {"enum": [4, 8]},
+            "storage_dtype": {"const": "int8"},
+            "signed": {"const": true},
+            "packing": {"enum": ["none", "signed_int4_nibble_low_high"]},
+            "layout": {"enum": ["logical_out_in", "packed_out_in"]},
+            "granularity": {"enum": ["per_channel", "per_group"]},
+            "axis": {"const": 0},
+            "group_size": {"type": ["integer", "null"], "minimum": 1}
+          }
+        },
+        "activation": {
+          "type": "object", "additionalProperties": false,
+          "required": ["bits", "dtype", "granularity", "dynamic"],
+          "properties": {
+            "bits": {"enum": [4, 8]},
+            "dtype": {"enum": ["int4", "int8"]},
+            "granularity": {"enum": ["per_token", "per_tensor", "pd_mix"]},
+            "dynamic": {"type": "boolean"}
+          }
+        },
+        "scale": {
+          "type": "object", "additionalProperties": false,
+          "required": ["dtype", "weight_shape", "activation_shape", "scale_bias"],
+          "properties": {
+            "dtype": {"enum": ["float32", "bfloat16", "float16"]},
+            "weight_shape": {"enum": ["out_1", "out_groups"]},
+            "activation_shape": {"enum": ["one", "runtime_per_token"]},
+            "scale_bias": {"enum": ["forbidden", "required_out_1_or_16"]}
+          }
+        },
+        "zero_point": {
+          "type": "object", "additionalProperties": false,
+          "required": ["weight", "activation", "dtype", "semantics"],
+          "properties": {
+            "weight": {"enum": ["required", "forbidden"]},
+            "activation": {"enum": ["required", "forbidden", "runtime"]},
+            "dtype": {"enum": ["float32", "int32"]},
+            "semantics": {"const": "additive_offset_before_scale"}
+          }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object", "additionalProperties": false,
+      "required": ["host", "loader", "scheme_provider", "operators"],
+      "properties": {
+        "host": {"const": "vllm-ascend"},
+        "loader": {"const": "modelslim"},
+        "scheme_provider": {"type": "string", "minLength": 1},
+        "operators": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      }
+    },
+    "software": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cann", "torch_npu", "vllm", "vllm_ascend"],
+      "properties": {
+        "cann": {"type": "string", "minLength": 1},
+        "torch_npu": {"type": "string", "minLength": 1},
+        "vllm": {"type": "string", "minLength": 1},
+        "vllm_ascend": {"type": "string", "minLength": 1}
+      }
+    },
+    "files": {
+      "type": "object", "additionalProperties": false,
+      "required": ["config", "description", "description_sha256", "weights"],
+      "properties": {
+        "config": {"const": "config.json"},
+        "description": {"const": "quant_model_description.json"},
+        "description_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "weights": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[^/]+\\.safetensors$"}}
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["level", "verified_profiles", "results"],
+      "properties": {
+        "level": {"enum": ["schema_only", "correctness", "npu_e2e", "matched_benchmark"]},
+        "verified_profiles": {"type": "array", "items": {"enum": ["BF16", "W8A8", "W4A4", "W4A8"]}},
+        "results": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

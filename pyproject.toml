@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ascend-quant-toolkit"
+version = "0.3.0"
+description = "Offline calibration, conversion, artifact export, and evaluation tools for Ascend quantization"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "JXD Quantization Team" },
+]
+dependencies = []
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+]
+
+[project.scripts]
+jxd-quant = "jxd_ascend_quant.cli:main"
+ascend-quant-toolkit = "jxd_ascend_quant.cli:main"
+
+[project.entry-points."jxd_ascend_quant.recipes"]
+qwen25-w8a8-pdmix = "jxd_ascend_quant.recipes.qwen25_w8a8_pdmix:get_recipe"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+jxd_ascend_quant = ["recipes/yaml/*.yaml"]
+
+[tool.setuptools.data-files]
+"share/ascend-quant-toolkit/contracts" = [
+  "contracts/ascend-quant-artifact-v1.schema.json",
+  "contracts/README.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

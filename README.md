@@ -1,0 +1,157 @@
+# Ascend Quant Toolkit
+
+> Classification: **Tool** — offline development lifecycle only.
+
+> Project status: W8A8 runtime-extension prototype and NPU E2E are available;
+> the Extension Manager manifest/provider API is awaiting framework-team review.
+
+Design is the gate for further runtime extraction. Start with:
+
+- [`docs/current-vllm-ascend-quant-architecture.md`](docs/current-vllm-ascend-quant-architecture.md)
+- [`docs/runtime-plugin-design.md`](docs/runtime-plugin-design.md)
+- [`docs/runtime-plugin-roadmap.md`](docs/runtime-plugin-roadmap.md)
+- [`docs/adr/0001-runtime-plugin-boundary.md`](docs/adr/0001-runtime-plugin-boundary.md)
+
+This repository owns calibration, ModelSlim conversion, quantized artifact
+generation, provenance, PPL/accuracy evaluation inputs, and matched benchmark
+evidence. It is not itself a vLLM plugin and its root distribution does not
+register a `vllm.general_plugins` entry point.
+
+The runtime component is a separate Python distribution under
+[`runtime-extension/`](runtime-extension/): **`vllm-ascend-quant-ext`**. That
+package is classified as a **Plugin** and contains no calibration, conversion,
+dataset, PPL, or benchmark lifecycle.
+
+## Ownership boundary
+
+| Component | Classification | Lifecycle owner | May modify/build model artifacts |
+|---|---|---|---|
+| Ascend Quant Toolkit | Tool | offline developer/operator | yes, only during explicit offline conversion/export |
+| vLLM Ascend Quant Extension | Plugin | vLLM-Ascend | no; runtime access is read-only |
+| vLLM-HUST Extension Manager | Manager | operator/manager | no; discover/check/plan/render only |
+| Adaptive Quantized KV | separate capability | its own runtime owner | outside this repository |
+
+## Install the offline Toolkit
+
+```bash
+python -m pip install -e /root/jxd-ascend-quant \
+  --no-deps --no-build-isolation
+```
+
+The compatibility alias `jxd-quant` remains available, while the canonical
+command is `ascend-quant-toolkit`.
+
+```bash
+ascend-quant-toolkit doctor --path /data/jxd
+ascend-quant-toolkit list-recipes
+ascend-quant-toolkit plan \
+  --recipe qwen25-w8a8-pdmix \
+  --model /root/models/Qwen2.5-14B-Instruct \
+  --output /data/jxd/models/Qwen2.5-14B-Instruct-w8a8-pdmix \
+  --device npu:7
+```
+
+Replace `plan` with `quantize` to run the offline job. Successful quantization
+writes both provenance and the frozen runtime contract:
+
+- `jxd_quant_manifest.json`
+- `ascend_quant_artifact.json`
+- `quant_model_description.json`
+- `quant_model_description.modelslim.json` (legacy rollback copy)
+
+For a previously produced plugin-format model, export the contract explicitly:
+
+```bash
+ascend-quant-toolkit export-contract \
+  --model /path/to/model \
+  --recipe qwen25-w8a8-pdmix \
+  --evidence-level schema_only
+```
+
+Do not claim NPU or benchmark verification by changing the evidence flag alone;
+the referenced result files must exist and follow the matched protocol in
+[`docs/acceptance-matrix.md`](docs/acceptance-matrix.md).
+
+Matched BF16/W8A8/W4A4/W4A8 records use
+[`evidence/example-result-v1.json`](evidence/example-result-v1.json) and are
+checked with:
+
+```bash
+ascend-quant-toolkit validate-evidence --file result.json
+```
+
+## Install the runtime extension
+
+```bash
+python -m pip install -e /root/jxd-ascend-quant/runtime-extension \
+  --no-build-isolation
+
+vllm-ascend-quant-ext check --model /path/to/model
+vllm-ascend-quant-ext plan --model /path/to/model
+vllm-ascend-quant-ext render --model /path/to/model
+```
+
+Installation alone has no runtime effect. `check`, `plan`, and `render` are
+read-only. The rendered environment explicitly selects the artifact and enables
+the extension for the next vLLM start. Contract admission completes before
+torch or vLLM-Ascend implementation modules are imported.
+
+The static Extension Manager descriptor is shipped as
+`vllm_ascend_quant_ext/extension-manifest.json` and installed under
+`share/vllm-hust/extensions/vllm-ascend-quant/`.
+
+Target Manager flow, once the host provider admits the
+`model_weight_quantization_runtime` kind:
+
+```bash
+pip install vllm-hust-ext
+pip install vllm-ascend-quant-ext
+vllm-hust-ext extension check vllm-ascend-quant
+```
+
+Until that Manager kind/materializer is available in the deployed Manager,
+use the extension's own `check/plan/render` commands; do not describe this as
+Manager admission evidence.
+
+The framework-team hand-off is documented in
+[`docs/extension-manager-handoff.md`](docs/extension-manager-handoff.md), and
+release ownership/gates are tracked in
+[`docs/release-checklist.md`](docs/release-checklist.md). Existing traceable
+W8A8 results are recorded in
+[`docs/w8a8-evidence.md`](docs/w8a8-evidence.md).
+
+## Artifact contract and failure policy
+
+The closed JSON contract is documented in [`contracts/`](contracts/). It covers
+W8A8, W4A4, and W4A8 declarations for:
+
+- weight packing/layout and signed nibble semantics;
+- scale granularity and shape;
+- zero-point presence, dtype, and semantics;
+- supported model identity and rank/alignment constraints;
+- CANN, torch-npu, vLLM-HUST and vLLM-Ascend-HUST compatibility ranges;
+- ModelSlim loader, scheme provider, and required operators.
+
+Unknown fields, unknown schemes/operators/layouts, incomplete tensors, dtype or
+shape mismatches, hash mismatches, unsupported software versions, and absent
+scheme providers fail closed.
+
+W4A8 hierarchical per-group artifacts are deliberately not admitted by
+contract v1; the current validator rejects them instead of interpreting their
+secondary scale tensors as ordinary per-group scales.
+
+## Rollback and uninstall
+
+The Manager and runtime extension never rewrite model files. Disabling the
+extension removes its environment selection on the next start. Uninstalling
+the runtime wheel removes its registration. The original ModelSlim artifact is
+preserved by the offline Toolkit and can be restored with:
+
+```bash
+ascend-quant-toolkit restore-modelslim \
+  --model /path/to/model \
+  --recipe qwen25-w8a8-pdmix
+```
+
+This repository never combines model-weight quantization with Adaptive
+Quantized KV manifests, lifecycle, compatibility claims, or configuration.

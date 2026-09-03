@@ -1,0 +1,53 @@
+apiversion: modelslim_v1
+
+metadata:
+  config_id: qwen2.5-14b-w8a8-pdmix-a030
+  score: 90
+  verified_model_types:
+    - Qwen2.5-14B-Instruct
+  label:
+    w_bit: 8
+    a_bit: 8
+    is_sparse: false
+    kv_cache: false
+
+spec:
+  calibration:
+    dataset: c4
+    num_samples: 128
+    seq_len: 2048
+
+  process:
+    - type: iter_smooth
+      alpha: 0.30
+      scale_min: 1e-5
+      symmetric: true
+      enable_subgraph_type:
+        - norm-linear
+        - linear-linear
+        - ov
+        - up-down
+      include:
+        - "*"
+
+    - type: linear_quant
+      qconfig:
+        act:
+          scope: pd_mix
+          dtype: int8
+          symmetric: false
+          method: minmax
+        weight:
+          scope: per_channel
+          dtype: int8
+          symmetric: true
+          method: minmax
+      include:
+        - "*"
+      exclude:
+        - lm_head
+
+  save:
+    - type: ascendv1_saver
+      part_file_size: 4
+

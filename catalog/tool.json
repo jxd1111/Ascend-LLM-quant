@@ -1,0 +1,7 @@
+{
+  "id": "ascend-quant-toolkit",
+  "classification": "tool",
+  "lifecycle": "offline_development",
+  "runtime_plugin": false,
+  "summary": "Calibration, conversion, quantized artifact export, and evaluation tooling"
+}
