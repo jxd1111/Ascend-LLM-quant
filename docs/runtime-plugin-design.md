@@ -83,8 +83,12 @@ TP/EP configuration
 execution_role = standalone | kv_producer | kv_consumer
 ```
 
-`execution_role` selects P/D-role mix policy. It does not authorize KV-cache
-quantization and is independent of the Adaptive Quantized KV extension.
+The artifact independently declares `quantization.scheme: W8A8` and
+`activation.granularity: pd_mix`. PDMix is the offline quantization
+algorithm/profile; `execution_role` is host runtime input and does not rename
+or redefine that profile. For a PDMix artifact it selects the static or dynamic
+runtime path. It does not authorize KV-cache quantization and is independent of
+the Adaptive Quantized KV extension.
 
 ### Layer input
 
@@ -151,7 +155,10 @@ layout required by the admitted operator.
 |---|---|---|---|
 | static | offline per-tensor activation scale/offset | offline INT8 per-channel | vLLM quantize + NPU quant matmul |
 | dynamic | runtime per-token scale | offline INT8 per-channel | NPU dynamic quant + NPU quant matmul |
-| P/D-role mix | static for `kv_consumer`, dynamic otherwise | static-parameter superset | selected path above |
+| PDMix (`activation.granularity=pd_mix`) | static for `kv_consumer`, dynamic otherwise | static-parameter superset | selected using the independent `execution_role` input |
+
+A standalone service therefore uses the dynamic runtime path, but its artifact
+and quantization profile remain PDMix.
 
 Operator rounding/saturation and physical FRACTAL_NZ layout remain host
 contracts. The plugin validates and selects them; it does not emulate them.
