@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from vllm_ascend_quant_ext.plugin import register
+from vllm_ascend_quant_ext.plugin import register, status
 
 
 def test_plugin_disabled_by_default(monkeypatch):
@@ -23,3 +23,11 @@ def test_invalid_artifact_fails_before_runtime_import(monkeypatch, tmp_path: Pat
     monkeypatch.setenv("VLLM_ASCEND_QUANT_EXT_ARTIFACT", str(tmp_path))
     with pytest.raises(RuntimeError, match="admission failed"):
         register()
+
+
+def test_status_exposes_bundle_and_runtime_entry_points():
+    report = status()
+    assert report["entry_point"] == "vllm.general_plugins/vllm_ascend_quant"
+    assert report["bundle_entry_point"] == (
+        "vllm_hust.extension_bundles/org.vllm-hust.ascend-quant"
+    )

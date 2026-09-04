@@ -1,0 +1,56 @@
+{
+  "schema_version": "0.2-experimental",
+  "extension_id": "org.vllm-hust.ascend-quant",
+  "extension_version": "0.3.0",
+  "kind": "model_weight_quantization_runtime",
+  "host": {
+    "provider": "vllm-ascend",
+    "name": "vLLM Ascend",
+    "version_range": ">=0.1.dev2790,<0.2",
+    "api_range": ">=1,<2"
+  },
+  "runtime": {
+    "type": "python",
+    "process_scope": "model_worker",
+    "isolation": "trusted_in_process"
+  },
+  "lifecycle_owner": "host",
+  "protocols": [
+    {
+      "name": "vllm-ascend.quantization.scheme",
+      "version_range": ">=1,<2"
+    },
+    {
+      "name": "ascend-quant-artifact",
+      "version_range": ">=1,<2"
+    }
+  ],
+  "implementation": [
+    {
+      "type": "python_module",
+      "module": "vllm_ascend_quant_ext.adapters.vllm_hust.runtime",
+      "object": "AscendQuantRuntimeComponent",
+      "status": "active"
+    }
+  ],
+  "requires_services": [],
+  "components": [
+    {
+      "component_id": "w8a8-runtime",
+      "contracts": [
+        "vllm-ascend.quantization.scheme.v1"
+      ],
+      "execution_planes": [
+        "model_worker"
+      ],
+      "isolation": "trusted_in_process",
+      "implementation_ref": "vllm_ascend_quant_ext.adapters.vllm_hust.runtime:AscendQuantRuntimeComponent",
+      "permissions": []
+    }
+  ],
+  "activation": {
+    "entry_points": [],
+    "environment": {},
+    "additional_config": {}
+  }
+}

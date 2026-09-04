@@ -5,16 +5,21 @@
 - [x] Toolkit and Runtime Extension are separate distributions.
 - [x] Runtime installation is default-off.
 - [x] No monkey patch is used.
-- [x] Static manifest is included in the wheel and installed data directory.
+- [x] Static manifest package is included in the wheel.
+- [x] `vllm_hust.extension_bundles` entry point matches the Bundle ID.
+- [x] Bundle declares an active Python carrier and typed W8A8 component.
 - [x] Closed W8A8 artifact contract and negative tests exist.
 - [x] Admission runs before implementation imports.
 - [x] Manager-facing descriptor/check/plan/render adapter exists.
 - [x] Enable and disable renders are deterministic and read-only.
 - [x] W8A8 Toolkit to NPU runtime E2E has passed.
-- [x] Wheel clean-install/discovery/uninstall verification is scripted.
+- [x] Wheel/sdist content and isolated install/discovery/uninstall verification is scripted.
 - [ ] Repository URL, maintainers and release owner confirmed.
 - [ ] Git history, signed tag and published wheel created.
 - [ ] Framework team accepts the non-experimental Manager schema/kind/API.
+- [ ] PyPI project ownership and scoped publishing credentials are confirmed.
+- [ ] A protected tag/release publishing workflow is enabled.
+- [ ] The published version passes a no-cache PyPI installation smoke test.
 
 ## Evidence gate
 

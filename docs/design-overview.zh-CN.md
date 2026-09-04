@@ -137,6 +137,19 @@ install → discover → check → plan → render → start
 - 匹配协议下的 BF16/W8A8 精度、性能和 HBM 对照；
 - W4A4/W4A8 的真实硬件验证。
 
+当前 `0.2-experimental` Bundle 原型采用以下暂定标识：
+
+```text
+Bundle ID:          org.vllm-hust.ascend-quant
+Component ID:       w8a8-runtime
+完整 Component ID: org.vllm-hust.ascend-quant/w8a8-runtime
+Contract:           vllm-ascend.quantization.scheme.v1
+Execution plane:    model_worker
+```
+
+这些标识用于先完成与 BidKV 一致的打包和发现结构，正式发布前仍需与
+Extension Manager 团队同步。
+
 因此当前状态应表述为：
 
 ```text

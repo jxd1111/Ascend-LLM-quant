@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import tarfile
 import venv
 import zipfile
 from pathlib import Path
@@ -17,6 +18,10 @@ from pathlib import Path
 DIST_NAME = "vllm-ascend-quant-ext"
 ENTRY_GROUP = "vllm.general_plugins"
 ENTRY_NAME = "vllm_ascend_quant"
+BUNDLE_GROUP = "vllm_hust.extension_bundles"
+BUNDLE_ID = "org.vllm-hust.ascend-quant"
+MANIFEST = "vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json"
+LEGACY_MANIFEST = "vllm_ascend_quant_ext/extension-manifest.json"
 
 
 def _run(*args: str) -> str:
@@ -45,24 +50,57 @@ def _check_wheel(wheel: Path) -> None:
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
     suffixes = {
-        "vllm_ascend_quant_ext/extension-manifest.json",
+        "vllm_ascend_quant_ext/_version.py",
+        "vllm_ascend_quant_ext/manifests/__init__.py",
+        MANIFEST,
+        "vllm_ascend_quant_ext/adapters/vllm_hust/runtime.py",
         "vllm_ascend_quant_ext/schemes/w8a8_pdmix.py",
         ".dist-info/entry_points.txt",
-        ".data/data/share/vllm-hust/extensions/vllm-ascend-quant/extension-manifest.json",
     }
     missing = [suffix for suffix in suffixes if not any(name.endswith(suffix) for name in names)]
     if missing:
         raise RuntimeError(f"wheel is incomplete: {missing}")
+    if any(name.endswith(LEGACY_MANIFEST) for name in names):
+        raise RuntimeError("wheel contains the retired legacy extension manifest")
+
+    with zipfile.ZipFile(wheel) as archive:
+        entry_name = next(
+            name for name in archive.namelist() if name.endswith(".dist-info/entry_points.txt")
+        )
+        entries = archive.read(entry_name).decode("utf-8")
+    if f"[{BUNDLE_GROUP}]" not in entries or f"{BUNDLE_ID} = vllm_ascend_quant_ext.manifests" not in entries:
+        raise RuntimeError("wheel does not declare the Extension Bundle entry point")
+    if f"[{ENTRY_GROUP}]" not in entries or f"{ENTRY_NAME} = vllm_ascend_quant_ext.plugin:register" not in entries:
+        raise RuntimeError("wheel does not declare the vLLM runtime activation entry point")
+
+
+def _check_sdist(sdist: Path) -> None:
+    with tarfile.open(sdist, "r:gz") as archive:
+        names = archive.getnames()
+    suffixes = {
+        "pyproject.toml",
+        "src/vllm_ascend_quant_ext/_version.py",
+        f"src/{MANIFEST}",
+        "src/vllm_ascend_quant_ext/adapters/vllm_hust/runtime.py",
+    }
+    missing = [suffix for suffix in suffixes if not any(name.endswith(suffix) for name in names)]
+    if missing:
+        raise RuntimeError(f"sdist is incomplete: {missing}")
+    if any(name.endswith(LEGACY_MANIFEST) for name in names):
+        raise RuntimeError("sdist contains the retired legacy extension manifest")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--wheel", required=True, type=Path)
+    parser.add_argument("--sdist", required=True, type=Path)
     parser.add_argument("--model", type=Path)
     args = parser.parse_args()
     wheel = args.wheel.resolve()
+    sdist = args.sdist.resolve()
     model = args.model.resolve() if args.model else None
     _check_wheel(wheel)
+    _check_sdist(sdist)
     before = _model_snapshot(model)
 
     with tempfile.TemporaryDirectory(prefix="quant-ext-release-") as temporary:
@@ -73,32 +111,38 @@ def main() -> int:
         _run(str(pip), "install", "--no-deps", str(wheel))
         probe = r'''
 import json
-import sysconfig
-from importlib.metadata import entry_points
+import sys
+from importlib.metadata import entry_points, version
 from importlib.resources import files
-from pathlib import Path
 
-package_manifest = files("vllm_ascend_quant_ext").joinpath("extension-manifest.json")
+package_manifest = files("vllm_ascend_quant_ext.manifests").joinpath("vllm-hust-extension-v0.2.json")
 manifest = json.loads(package_manifest.read_text(encoding="utf-8"))
-installed_manifest = Path(sysconfig.get_path("data")) / "share/vllm-hust/extensions/vllm-ascend-quant/extension-manifest.json"
 points = [ep for ep in entry_points(group="vllm.general_plugins") if ep.name == "vllm_ascend_quant"]
-assert manifest["extension_id"] == "vllm-ascend-quant"
-assert installed_manifest.is_file()
+bundles = [ep for ep in entry_points(group="vllm_hust.extension_bundles") if ep.name == "org.vllm-hust.ascend-quant"]
+assert manifest["extension_id"] == "org.vllm-hust.ascend-quant"
+assert manifest["extension_version"] == version("vllm-ascend-quant-ext")
 assert len(points) == 1
-print(json.dumps({"manifest": str(installed_manifest), "entry_point": points[0].value}))
+assert len(bundles) == 1
+assert bundles[0].value == "vllm_ascend_quant_ext.manifests"
+assert manifest["activation"] == {"entry_points": [], "environment": {}, "additional_config": {}}
+assert "torch" not in sys.modules
+assert "vllm" not in sys.modules
+assert "vllm_ascend" not in sys.modules
+print(json.dumps({"manifest": str(package_manifest), "runtime_entry_point": points[0].value, "bundle_entry_point": bundles[0].value}))
 '''
         print(_run(str(python), "-c", probe).strip())
         _run(str(pip), "uninstall", "-y", DIST_NAME)
         uninstall_probe = r'''
 from importlib.metadata import entry_points
 assert not [ep for ep in entry_points(group="vllm.general_plugins") if ep.name == "vllm_ascend_quant"]
+assert not [ep for ep in entry_points(group="vllm_hust.extension_bundles") if ep.name == "org.vllm-hust.ascend-quant"]
 '''
         _run(str(python), "-c", uninstall_probe)
 
     after = _model_snapshot(model)
     if before != after:
         raise RuntimeError("model metadata changed during install/uninstall verification")
-    print(json.dumps({"valid": True, "wheel": str(wheel), "model_unchanged": before == after}))
+    print(json.dumps({"valid": True, "wheel": str(wheel), "sdist": str(sdist), "model_unchanged": before == after}))
     return 0
 
 

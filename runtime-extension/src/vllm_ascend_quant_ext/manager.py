@@ -11,10 +11,18 @@ from .contract import validate_artifact
 from .plugin import ARTIFACT_ENV, ENABLE_ENV
 
 MANAGER_ADAPTER_API_VERSION = "1.0"
+BUNDLE_ID = "org.vllm-hust.ascend-quant"
+COMPONENT_ID = f"{BUNDLE_ID}/w8a8-runtime"
 
 
 def manifest_path() -> Path:
-    return Path(str(files("vllm_ascend_quant_ext").joinpath("extension-manifest.json")))
+    return Path(
+        str(
+            files("vllm_ascend_quant_ext.manifests").joinpath(
+                "vllm-hust-extension-v0.2.json"
+            )
+        )
+    )
 
 
 def load_manifest() -> dict[str, Any]:
@@ -34,9 +42,9 @@ def validate_manifest(value: Any) -> dict[str, Any]:
         "lifecycle_owner",
         "protocols",
         "implementation",
-        "permissions",
         "requires_services",
-        "compatibility",
+        "components",
+        "activation",
     }
     missing = required - set(value)
     unknown = set(value) - required
@@ -46,18 +54,41 @@ def validate_manifest(value: Any) -> dict[str, Any]:
         )
     if value["schema_version"] != "0.2-experimental":
         raise ValueError("unsupported extension manifest schema")
-    if value["extension_id"] != "vllm-ascend-quant":
+    if value["extension_id"] != BUNDLE_ID:
         raise ValueError("unexpected extension identity")
     if value["kind"] != "model_weight_quantization_runtime":
         raise ValueError("unexpected extension kind")
     if value["host"].get("provider") != "vllm-ascend":
         raise ValueError("unexpected extension host")
+    if value["lifecycle_owner"] != "host":
+        raise ValueError("unexpected lifecycle owner")
+    if value["runtime"].get("type") != "python":
+        raise ValueError("unsupported runtime type")
     if value["runtime"].get("isolation") != "trusted_in_process":
         raise ValueError("unsupported isolation claim")
-    if value["permissions"] or value["requires_services"]:
-        raise ValueError("this extension does not admit permissions or external services")
-    if value["compatibility"].get("kv_cache_quantization") is not False:
-        raise ValueError("model-weight and KV-cache quantization must remain separate")
+    if value["requires_services"]:
+        raise ValueError("this extension does not admit external services")
+    implementation = value["implementation"]
+    if not isinstance(implementation, list) or len(implementation) != 1:
+        raise ValueError("the Bundle must declare one implementation carrier")
+    carrier = implementation[0]
+    if carrier.get("type") != "python_module" or carrier.get("status") != "active":
+        raise ValueError("the Bundle implementation carrier is not activation-ready")
+    components = value["components"]
+    if not isinstance(components, list) or len(components) != 1:
+        raise ValueError("the Bundle must declare one typed component")
+    component = components[0]
+    if component.get("component_id") != "w8a8-runtime":
+        raise ValueError("unexpected component identity")
+    if component.get("contracts") != ["vllm-ascend.quantization.scheme.v1"]:
+        raise ValueError("unexpected component contract")
+    if component.get("execution_planes") != ["model_worker"]:
+        raise ValueError("unexpected component execution plane")
+    if component.get("permissions") != []:
+        raise ValueError("the quantization component requests permissions")
+    activation = value["activation"]
+    if activation != {"entry_points": [], "environment": {}, "additional_config": {}}:
+        raise ValueError("typed component activation must not inject legacy runtime state")
     return value
 
 
@@ -68,9 +99,9 @@ def check(model_path: Path) -> dict[str, Any]:
 def plan(model_path: Path) -> dict[str, Any]:
     report = validate_artifact(model_path)
     return {
-        "extension_id": "vllm-ascend-quant",
+        "extension_id": BUNDLE_ID,
         "action": "enable_for_next_vllm_start",
-        "lifecycle_owner": "vllm-ascend",
+        "lifecycle_owner": "host",
         "mutates_model": False,
         "implementation_imported": False,
         "artifact": report,
@@ -80,7 +111,7 @@ def plan(model_path: Path) -> dict[str, Any]:
 def render(model_path: Path) -> dict[str, Any]:
     report = validate_artifact(model_path)
     return {
-        "extension_id": "vllm-ascend-quant",
+        "extension_id": BUNDLE_ID,
         "environment": {
             ENABLE_ENV: "1",
             ARTIFACT_ENV: str(model_path.resolve()),
@@ -119,7 +150,7 @@ class ManagerAdapter:
     """Pure-data hand-off boundary for a future typed Manager materializer."""
 
     api_version = MANAGER_ADAPTER_API_VERSION
-    extension_id = "vllm-ascend-quant"
+    extension_id = BUNDLE_ID
     kind = "model_weight_quantization_runtime"
     host = "vllm-ascend"
 
@@ -159,7 +190,7 @@ class ManagerAdapter:
             return {
                 "extension_id": self.extension_id,
                 "action": "disable_for_next_vllm_start",
-                "lifecycle_owner": "vllm-ascend",
+                "lifecycle_owner": "host",
                 "mutates_model": False,
                 "implementation_imported": False,
             }

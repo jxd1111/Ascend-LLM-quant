@@ -24,7 +24,7 @@ Status: design baseline for review before the next implementation phase.
 
 ```text
 Extension Manager
-  -> static manifest discovery
+  -> vllm_hust.extension_bundles static manifest discovery
   -> QuantRuntimeProvider.check/plan/render
        -> ArtifactReader + ContractValidator
        -> CapabilityMatcher
@@ -141,6 +141,24 @@ JXD_W8A8_PDMIX/moe
 
 The next implementation phase should not register or overwrite host-owned keys
 such as `W8A8`, `W8A8_DYNAMIC` or `W8A8_MIX`.
+
+### Extension Bundle identity
+
+The `0.2-experimental` packaging prototype uses the following provisional
+identifiers pending framework-team confirmation:
+
+```text
+Bundle ID:          org.vllm-hust.ascend-quant
+Component ID:       w8a8-runtime
+Full component ID:  org.vllm-hust.ascend-quant/w8a8-runtime
+Contract:           vllm-ascend.quantization.scheme.v1
+Execution plane:    model_worker
+```
+
+The Bundle is discovered through `vllm_hust.extension_bundles`. The existing
+`vllm.general_plugins/vllm_ascend_quant` entry point is retained only for direct
+diagnostics; it is not selected by Bundle activation and is not the Bundle
+discovery mechanism.
 
 ### Tensor output
 

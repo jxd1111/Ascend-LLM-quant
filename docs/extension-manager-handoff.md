@@ -11,11 +11,16 @@ manifest schema has already been accepted by the Manager implementation.
 | Field | Value |
 |---|---|
 | Distribution | `vllm-ascend-quant-ext` |
-| Extension ID | `vllm-ascend-quant` |
+| Bundle/Extension ID | `org.vllm-hust.ascend-quant` |
+| Component ID | `w8a8-runtime` |
+| Full component ID | `org.vllm-hust.ascend-quant/w8a8-runtime` |
 | Proposed kind | `model_weight_quantization_runtime` |
 | Host | `vllm-ascend` |
-| Lifecycle owner | `vllm-ascend` |
+| Lifecycle owner | `host` (the vLLM-Ascend provider) |
 | Runtime scope | trusted Python in-process, model worker |
+| Component contract | `vllm-ascend.quantization.scheme.v1` |
+| Execution plane | `model_worker` |
+| Bundle discovery | `vllm_hust.extension_bundles/org.vllm-hust.ascend-quant` |
 | vLLM entry point | `vllm.general_plugins/vllm_ascend_quant` |
 | Proposed adapter symbol | `vllm_ascend_quant_ext.manager:provider` |
 | Adapter API | `1.0` |
@@ -25,16 +30,25 @@ conversion, dataset, PPL, benchmark, or KV-cache lifecycle.
 
 ## Discovery
 
-The wheel contains the manifest both as a package resource and as an installed
-data file:
+The wheel registers the manifest package through the Extension Bundle entry
+point:
 
 ```text
-vllm_ascend_quant_ext/extension-manifest.json
-share/vllm-hust/extensions/vllm-ascend-quant/extension-manifest.json
+vllm_hust.extension_bundles:
+  org.vllm-hust.ascend-quant = vllm_ascend_quant_ext.manifests
+
+vllm_ascend_quant_ext/manifests/__init__.py
+vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json
 ```
 
-The Manager must discover and validate static metadata without importing
+The Manager must discover and validate this static metadata without importing
 `vllm_ascend_quant_ext.plugin`, torch, torch-npu, vLLM, or vLLM-Ascend.
+
+The manifest declares the provisional typed component
+`org.vllm-hust.ascend-quant/w8a8-runtime`. Its Python carrier is
+`vllm_ascend_quant_ext.adapters.vllm_hust.runtime:AscendQuantRuntimeComponent`
+with `implementation.status=active`. Host materialization must still fail
+closed until the proposed kind and component contract are supported.
 
 ## Configuration
 
@@ -107,7 +121,9 @@ The Manager must not modify the model artifact or invoke ModelSlim.
 - accept the proposed kind and host-provider names;
 - confirm the installed manifest discovery path;
 - define the official typed provider/materializer interface;
-- decide whether the adapter symbol becomes a registered Manager entry point;
+- accept or revise the provisional Bundle/component/contract identifiers;
+- define how the model path and immutable artifact identity reach the model
+  worker component;
 - publish the final CLI syntax for configure/check/plan/render/run.
 
 No extension release may silently guess these decisions. A schema change must

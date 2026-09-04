@@ -20,7 +20,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install test and build dependencies
-        run: python -m pip install --upgrade pip setuptools wheel pytest packaging
+        run: python -m pip install --upgrade pip setuptools wheel build pytest packaging
       - name: Install both local distributions
         run: |
           python -m pip install -e . --no-deps --no-build-isolation
@@ -29,15 +29,17 @@ jobs:
         run: python -m pytest -q
       - name: Test runtime extension
         run: python -m pytest -q runtime-extension/tests
-      - name: Build separate wheels
+      - name: Build Toolkit wheel and Runtime Extension wheel plus sdist
         run: |
           python -m pip wheel . --no-deps --no-build-isolation -w dist
-          python -m pip wheel ./runtime-extension --no-deps --no-build-isolation -w runtime-extension/dist
-      - name: Verify runtime wheel discovery and uninstall
+          python -m build --wheel --sdist --no-isolation \
+            --outdir runtime-extension/dist runtime-extension
+      - name: Verify Bundle metadata, isolated install, discovery and uninstall
         run: |
           python runtime-extension/tools/verify_release.py \
-            --wheel runtime-extension/dist/vllm_ascend_quant_ext-0.3.0-py3-none-any.whl
-      - name: Verify Toolkit has no vLLM plugin entry point
+            --wheel runtime-extension/dist/vllm_ascend_quant_ext-*.whl \
+            --sdist runtime-extension/dist/vllm_ascend_quant_ext-*.tar.gz
+      - name: Verify Toolkit has no runtime or Bundle entry point
         run: |
           python - <<'PY'
           import zipfile
@@ -48,4 +50,5 @@ jobs:
               entry = next(name for name in archive.namelist() if name.endswith(".dist-info/entry_points.txt"))
               contents = archive.read(entry).decode()
           assert "[vllm.general_plugins]" not in contents
+          assert "[vllm_hust.extension_bundles]" not in contents
           PY

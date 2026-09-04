@@ -117,9 +117,11 @@ read-only. The rendered environment explicitly selects the artifact and enables
 the extension for the next vLLM start. Contract admission completes before
 torch or vLLM-Ascend implementation modules are imported.
 
-The static Extension Manager descriptor is shipped as
-`vllm_ascend_quant_ext/extension-manifest.json` and installed under
-`share/vllm-hust/extensions/vllm-ascend-quant/`.
+The runtime wheel registers the experimental Extension Bundle
+`org.vllm-hust.ascend-quant` through `vllm_hust.extension_bundles`. Its static
+manifest is packaged under
+`vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json`; discovery does
+not import the runtime implementation.
 
 Target Manager flow, once the host provider admits the
 `model_weight_quantization_runtime` kind:
@@ -127,7 +129,24 @@ Target Manager flow, once the host provider admits the
 ```bash
 pip install vllm-hust-ext
 pip install vllm-ascend-quant-ext
-vllm-hust-ext extension check vllm-ascend-quant
+vllm-hust-ext extension check org.vllm-hust.ascend-quant
+```
+
+The provisional Bundle/component identities used during framework review are:
+
+```text
+Bundle:    org.vllm-hust.ascend-quant
+Component: org.vllm-hust.ascend-quant/w8a8-runtime
+Contract:  vllm-ascend.quantization.scheme.v1
+Plane:     model_worker
+```
+
+Use the Bundle ID, rather than the Python distribution name, in Manager
+commands once the proposed kind/provider is admitted:
+
+```bash
+vllm-hust-ext extension inspect org.vllm-hust.ascend-quant
+vllm-hust-ext extension check org.vllm-hust.ascend-quant
 ```
 
 Until that Manager kind/materializer is available in the deployed Manager,
