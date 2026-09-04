@@ -129,18 +129,16 @@ modifies the model.
 
 ### Scheme registration
 
-Only namespaced types are registered:
+The current extension registers only the namespaced PDMix aliases:
 
 ```text
-JXD_W8A8_STATIC/linear
-JXD_W8A8_DYNAMIC/linear
-JXD_W8A8_DYNAMIC/moe
 JXD_W8A8_PDMIX/linear
 JXD_W8A8_PDMIX/moe
 ```
 
-The next implementation phase should not register or overwrite host-owned keys
-such as `W8A8`, `W8A8_DYNAMIC` or `W8A8_MIX`.
+They subclass the native vLLM-Ascend `W8A8_MIX` implementations instead of
+copying or forking their algorithm code. The extension does not register or
+overwrite host-owned keys such as `W8A8`, `W8A8_DYNAMIC` or `W8A8_MIX`.
 
 ### Extension Bundle identity
 
@@ -178,8 +176,9 @@ layout required by the admitted operator.
 A standalone service therefore uses the dynamic runtime path, but its artifact
 and quantization profile remain PDMix.
 
-Operator rounding/saturation and physical FRACTAL_NZ layout remain host
-contracts. The plugin validates and selects them; it does not emulate them.
+The PDMix algorithm, operator rounding/saturation and physical FRACTAL_NZ
+layout remain host-owned contracts. The plugin validates the artifact and
+provides a namespaced alias; it does not fork or emulate the host algorithm.
 
 ## Startup modes
 
@@ -212,7 +211,9 @@ diagnostic only.
 - no silent BF16 fallback for a declared quantized layer;
 - disable removes only this extension's variables and plugin selection;
 - uninstall removes registration without touching artifacts;
-- original ModelSlim/vLLM-Ascend path remains available.
+- the original ModelSlim/vLLM-Ascend path is restored only by the Toolkit's
+  explicit, fail-closed `restore-modelslim` operation; uninstall is not a
+  metadata migration.
 
 ## Host API required before full extraction
 

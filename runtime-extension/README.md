@@ -59,6 +59,11 @@ That avoids a partial Manager integration starting an unsafe legacy path. The
 typed carrier becomes active only after vLLM-Ascend accepts and materializes the
 quantization component contract.
 
+The namespaced `JXD_W8A8_PDMIX` registration delegates to vLLM-Ascend's native
+`W8A8_MIX` linear and MoE implementations. The extension owns admission and
+alias registration, while vLLM-Ascend continues to own weight loading,
+parameter layout, execution-role selection, and NPU operators.
+
 The Bundle manifest is located at:
 
 ```text

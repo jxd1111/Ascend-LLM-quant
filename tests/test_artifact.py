@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from jxd_ascend_quant.artifact import (
     inspect_artifact,
     prepare_runtime_metadata,
@@ -79,8 +81,32 @@ def test_prepare_runtime_metadata_is_atomic_and_idempotent(tmp_path: Path):
     assert backup == original
 
     restored = restore_modelslim_metadata(tmp_path, recipe)
+    assert restored["changed"] is True
     assert restored["active_quant_type"] == "W8A8_MIX"
     assert json.loads(description_path.read_text()) == original
+    assert description_path.read_bytes() == (
+        tmp_path / "quant_model_description.modelslim.json"
+    ).read_bytes()
+
+    second_restore = restore_modelslim_metadata(tmp_path, recipe)
+    assert second_restore["changed"] is False
+
+
+def test_restore_modelslim_refuses_to_overwrite_modified_runtime_metadata(tmp_path: Path):
+    description_path = tmp_path / "quant_model_description.json"
+    original = {"layer.weight": "W8A8_MIX", "lm_head.weight": "FLOAT"}
+    description_path.write_text(json.dumps(original))
+    recipe = get_recipe("qwen25-w8a8-pdmix")
+    prepare_runtime_metadata(tmp_path, recipe)
+
+    modified = json.loads(description_path.read_text())
+    modified["new.tensor"] = "FLOAT"
+    description_path.write_text(json.dumps(modified))
+
+    with pytest.raises(ValueError, match="refusing to overwrite later changes"):
+        restore_modelslim_metadata(tmp_path, recipe)
+
+    assert json.loads(description_path.read_text()) == modified
 
 
 def test_runtime_contract_records_closed_w8a8_format(tmp_path: Path):

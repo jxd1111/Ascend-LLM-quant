@@ -44,7 +44,7 @@ flowchart LR
 | 组件 | 负责 | 不负责 |
 |---|---|---|
 | Toolkit | 校准、SmoothQuant/GPTQ、转换、产物和评测 | vLLM worker 生命周期 |
-| Runtime Extension | 产物 admission、Scheme 映射、权重加载接口、算子选择 | 校准、数据集和模型转换 |
+| Runtime Extension | 产物 admission、量化类型映射、命名空间 Scheme 适配 | 校准、数据集、模型转换和 NPU 算子实现 |
 | Extension Manager | discover/check/plan/render/start/disable/uninstall | 修改量化模型 |
 | vLLM-Ascend | Platform、TP/EP、公共 Scheme SPI、CANN/torch-npu 算子 | 离线校准 |
 
@@ -113,7 +113,10 @@ install → discover → check → plan → render → start
 
 安装 wheel 默认不生效。Manager 和 Runtime Extension 始终只读模型目录；worker
 启动时再次校验 artifact identity，避免 plan/start 之间产物变化。禁用或卸载
-只移除插件选择和环境状态，模型文件保持不变。
+只移除插件选择和环境状态，模型文件保持不变。若 active metadata 使用
+`JXD_W8A8_PDMIX`，卸载前后都必须显式运行 Toolkit 的 `restore-modelslim` 才能
+恢复原生 `W8A8_MIX` 路径；恢复命令会校验 active metadata，发现后续修改则拒绝
+覆盖。
 
 在 Manager 正式接入前，扩展自身的 `check/plan/render` 只属于诊断模式。
 详细交接方式见 [Extension Manager 对接契约](extension-manager-handoff.md)。

@@ -83,6 +83,10 @@ These calls are read-only. An enabled `check` validates the complete artifact,
 software compatibility, safetensors metadata, operators, model identity and
 shape contract before any implementation import.
 
+The `JXD_W8A8_PDMIX` carrier is a namespaced alias of vLLM-Ascend's native
+`W8A8_MIX` linear and MoE schemes. The extension does not own or fork weight
+loading, tensor layout conversion, execution-role selection, or NPU operators.
+
 For an enabled extension, `render` returns:
 
 ```json
@@ -140,4 +144,6 @@ be followed by a new extension version and compatibility tests.
    absent on the next start.
 7. Uninstall the wheel and verify that its entry point and Manager descriptor
    disappear while model hashes remain unchanged.
-8. Start the original vLLM-Ascend/ModelSlim path to demonstrate rollback.
+8. Run Toolkit `restore-modelslim`, then start the original
+   vLLM-Ascend/ModelSlim `W8A8_MIX` path to demonstrate rollback. Uninstalling
+   the wheel alone must not be treated as metadata rollback.

@@ -12,6 +12,8 @@
 - [x] Admission runs before implementation imports.
 - [x] Manager-facing descriptor/check/plan/render adapter exists.
 - [x] Enable and disable renders are deterministic and read-only.
+- [x] Namespaced PDMix aliases delegate to host-owned implementations.
+- [x] Native `W8A8_MIX` metadata restoration is explicit and documented.
 - [x] W8A8 Toolkit to NPU runtime E2E has passed.
 - [x] Wheel/sdist content and isolated install/discovery/uninstall verification is scripted.
 - [ ] Repository URL, maintainers and release owner confirmed.
