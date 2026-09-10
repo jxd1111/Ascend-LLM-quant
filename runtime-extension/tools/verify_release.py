@@ -6,11 +6,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import subprocess
-import sys
-import tempfile
 import tarfile
+import tempfile
 import venv
 import zipfile
 from pathlib import Path
@@ -19,7 +17,7 @@ DIST_NAME = "vllm-ascend-quant-ext"
 ENTRY_GROUP = "vllm.general_plugins"
 ENTRY_NAME = "vllm_ascend_quant"
 BUNDLE_GROUP = "vllm_hust.extension_bundles"
-BUNDLE_ID = "org.vllm-hust.ascend-quant"
+BUNDLE_ID = "org.vllm-hust.ascend-quant-runtime"
 MANIFEST = "vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json"
 LEGACY_MANIFEST = "vllm_ascend_quant_ext/extension-manifest.json"
 
@@ -118,9 +116,10 @@ from importlib.resources import files
 package_manifest = files("vllm_ascend_quant_ext.manifests").joinpath("vllm-hust-extension-v0.2.json")
 manifest = json.loads(package_manifest.read_text(encoding="utf-8"))
 points = [ep for ep in entry_points(group="vllm.general_plugins") if ep.name == "vllm_ascend_quant"]
-bundles = [ep for ep in entry_points(group="vllm_hust.extension_bundles") if ep.name == "org.vllm-hust.ascend-quant"]
-assert manifest["extension_id"] == "org.vllm-hust.ascend-quant"
+bundles = [ep for ep in entry_points(group="vllm_hust.extension_bundles") if ep.name == "org.vllm-hust.ascend-quant-runtime"]
+assert manifest["extension_id"] == "org.vllm-hust.ascend-quant-runtime"
 assert manifest["extension_version"] == version("vllm-ascend-quant-ext")
+assert manifest["implementation"][0]["status"] == "import_only"
 assert len(points) == 1
 assert len(bundles) == 1
 assert bundles[0].value == "vllm_ascend_quant_ext.manifests"
@@ -135,7 +134,7 @@ print(json.dumps({"manifest": str(package_manifest), "runtime_entry_point": poin
         uninstall_probe = r'''
 from importlib.metadata import entry_points
 assert not [ep for ep in entry_points(group="vllm.general_plugins") if ep.name == "vllm_ascend_quant"]
-assert not [ep for ep in entry_points(group="vllm_hust.extension_bundles") if ep.name == "org.vllm-hust.ascend-quant"]
+assert not [ep for ep in entry_points(group="vllm_hust.extension_bundles") if ep.name == "org.vllm-hust.ascend-quant-runtime"]
 '''
         _run(str(python), "-c", uninstall_probe)
 

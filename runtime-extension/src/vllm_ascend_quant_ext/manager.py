@@ -11,8 +11,14 @@ from .contract import validate_artifact
 from .plugin import ARTIFACT_ENV, ENABLE_ENV
 
 MANAGER_ADAPTER_API_VERSION = "1.0"
-BUNDLE_ID = "org.vllm-hust.ascend-quant"
-COMPONENT_ID = f"{BUNDLE_ID}/w8a8-runtime"
+BUNDLE_ID = "org.vllm-hust.ascend-quant-runtime"
+COMPONENT_NAME = "ascend-quant-artifact-validator"
+COMPONENT_ID = f"{BUNDLE_ID}/{COMPONENT_NAME}"
+IMPORT_ONLY_ERROR = (
+    "extension is import_only: activation requires owner-approved "
+    "vllm.ascend.quantized-artifact-loader and "
+    "vllm.ascend.quantized-operator-selection host protocols"
+)
 
 
 def manifest_path() -> Path:
@@ -56,36 +62,64 @@ def validate_manifest(value: Any) -> dict[str, Any]:
         raise ValueError("unsupported extension manifest schema")
     if value["extension_id"] != BUNDLE_ID:
         raise ValueError("unexpected extension identity")
-    if value["kind"] != "model_weight_quantization_runtime":
+    if value["kind"] != "in_process_plugin":
         raise ValueError("unexpected extension kind")
-    if value["host"].get("provider") != "vllm-ascend":
+    if value["host"] != {
+        "provider": "vllm",
+        "name": "vllm-ascend",
+        "version_range": ">=0",
+    }:
         raise ValueError("unexpected extension host")
-    if value["lifecycle_owner"] != "host":
+    if value["lifecycle_owner"] != "vllm":
         raise ValueError("unexpected lifecycle owner")
-    if value["runtime"].get("type") != "python":
-        raise ValueError("unsupported runtime type")
-    if value["runtime"].get("isolation") != "trusted_in_process":
-        raise ValueError("unsupported isolation claim")
+    if value["runtime"] != {
+        "type": "python",
+        "process_scope": "vllm-ascend-worker",
+        "isolation": "trusted_in_process",
+    }:
+        raise ValueError("unsupported runtime declaration")
+    if value["protocols"] != [
+        {
+            "name": "vllm.ascend.quantized-artifact-loader",
+            "version_range": ">=1,<2",
+        },
+        {
+            "name": "vllm.ascend.quantized-operator-selection",
+            "version_range": ">=1,<2",
+        },
+    ]:
+        raise ValueError("unexpected host protocol declaration")
     if value["requires_services"]:
         raise ValueError("this extension does not admit external services")
     implementation = value["implementation"]
     if not isinstance(implementation, list) or len(implementation) != 1:
         raise ValueError("the Bundle must declare one implementation carrier")
     carrier = implementation[0]
-    if carrier.get("type") != "python_module" or carrier.get("status") != "active":
-        raise ValueError("the Bundle implementation carrier is not activation-ready")
+    if carrier != {
+        "type": "python_module",
+        "module": "vllm_ascend_quant_ext.contract",
+        "object": "ArtifactContractValidator",
+        "status": "import_only",
+    }:
+        raise ValueError("unexpected import-only implementation carrier")
     components = value["components"]
     if not isinstance(components, list) or len(components) != 1:
         raise ValueError("the Bundle must declare one typed component")
     component = components[0]
-    if component.get("component_id") != "w8a8-runtime":
+    if component.get("component_id") != COMPONENT_NAME:
         raise ValueError("unexpected component identity")
-    if component.get("contracts") != ["vllm-ascend.quantization.scheme.v1"]:
+    if component.get("contracts") != [
+        "vllm.ascend.quantized-artifact-loader.v1"
+    ]:
         raise ValueError("unexpected component contract")
-    if component.get("execution_planes") != ["model_worker"]:
+    if component.get("execution_planes") != ["worker", "device"]:
         raise ValueError("unexpected component execution plane")
-    if component.get("permissions") != []:
-        raise ValueError("the quantization component requests permissions")
+    if component.get("implementation_ref") != (
+        "vllm_ascend_quant_ext.contract:ArtifactContractValidator"
+    ):
+        raise ValueError("unexpected component implementation reference")
+    if component.get("permissions") != ["filesystem_read", "device_access"]:
+        raise ValueError("unexpected component permissions")
     activation = value["activation"]
     if activation != {"entry_points": [], "environment": {}, "additional_config": {}}:
         raise ValueError("typed component activation must not inject legacy runtime state")
@@ -97,11 +131,13 @@ def check(model_path: Path) -> dict[str, Any]:
 
 
 def plan(model_path: Path) -> dict[str, Any]:
+    """Render the explicit direct-diagnostic path, not Manager activation."""
+
     report = validate_artifact(model_path)
     return {
         "extension_id": BUNDLE_ID,
         "action": "enable_for_next_vllm_start",
-        "lifecycle_owner": "host",
+        "lifecycle_owner": "vllm",
         "mutates_model": False,
         "implementation_imported": False,
         "artifact": report,
@@ -147,11 +183,11 @@ def validate_manager_config(value: Any) -> dict[str, Any]:
 
 
 class ManagerAdapter:
-    """Pure-data hand-off boundary for a future typed Manager materializer."""
+    """Import-only hand-off boundary for the experimental Manager schema."""
 
     api_version = MANAGER_ADAPTER_API_VERSION
     extension_id = BUNDLE_ID
-    kind = "model_weight_quantization_runtime"
+    kind = "in_process_plugin"
     host = "vllm-ascend"
 
     def descriptor(self) -> dict[str, Any]:
@@ -178,7 +214,9 @@ class ManagerAdapter:
         return {
             "extension_id": self.extension_id,
             "enabled": True,
-            "admitted": True,
+            "admitted": False,
+            "enable_allowed": False,
+            "reason": IMPORT_ONLY_ERROR,
             "artifact_checked": True,
             "implementation_imported": False,
             "artifact": report,
@@ -190,11 +228,12 @@ class ManagerAdapter:
             return {
                 "extension_id": self.extension_id,
                 "action": "disable_for_next_vllm_start",
-                "lifecycle_owner": "host",
+                "lifecycle_owner": "vllm",
                 "mutates_model": False,
                 "implementation_imported": False,
             }
-        return plan(Path(config["model"]))
+        validate_artifact(Path(config["model"]))
+        raise RuntimeError(IMPORT_ONLY_ERROR)
 
     def render(self, configuration: Any) -> dict[str, Any]:
         config = validate_manager_config(configuration)
@@ -207,16 +246,8 @@ class ManagerAdapter:
                 "vllm_plugins_remove": ["vllm_ascend_quant"],
                 "vllm_arguments": [],
             }
-        rendered = render(Path(config["model"]))
-        return {
-            "extension_id": self.extension_id,
-            "environment_set": rendered["environment"],
-            "environment_unset": [],
-            "vllm_plugins_add": rendered["vllm_plugins_add"],
-            "vllm_plugins_remove": [],
-            "vllm_arguments": rendered["vllm_arguments"],
-            "artifact": rendered["artifact"],
-        }
+        validate_artifact(Path(config["model"]))
+        raise RuntimeError(IMPORT_ONLY_ERROR)
 
 
 # Stable symbol for the framework team's thin host-provider adapter.  It is not

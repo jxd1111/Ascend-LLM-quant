@@ -7,11 +7,12 @@
 - [x] No monkey patch is used.
 - [x] Static manifest package is included in the wheel.
 - [x] `vllm_hust.extension_bundles` entry point matches the Bundle ID.
-- [x] Bundle declares an active Python carrier and typed W8A8 component.
+- [x] Bundle declares an import-only artifact validator with empty activation.
 - [x] Closed W8A8 artifact contract and negative tests exist.
 - [x] Admission runs before implementation imports.
 - [x] Manager-facing descriptor/check/plan/render adapter exists.
-- [x] Enable and disable renders are deterministic and read-only.
+- [x] Enabled Manager plan/render fail closed while status is import-only.
+- [x] Disabled render is deterministic and removes only extension-owned state.
 - [x] Namespaced PDMix aliases delegate to host-owned implementations.
 - [x] Native `W8A8_MIX` metadata restoration is explicit and documented.
 - [x] W8A8 Toolkit to NPU runtime E2E has passed.
@@ -34,13 +35,15 @@
 
 ## Joint Manager gate
 
+- [x] Isolated wheel discovery reads the manifest without importing runtime code.
 - [ ] Manager discovers installed manifest without importing implementation.
 - [ ] Manager rejects incompatible manifest/host/version/permissions.
 - [ ] Manager check rejects an invalid artifact before implementation import.
-- [ ] Manager plan/render preserve other plugins, including `ascend`.
+- [ ] Future active Manager plan/render preserve other plugins, including `ascend`.
 - [ ] Manager-enabled W8A8 startup and inference pass.
 - [ ] Disable and uninstall rollback pass without changing model hashes.
 
-Unchecked Manager items are owned by or require the Extension Manager team.
-They do not block extension-side hand-off, but they do block a claim of complete
-formal Manager integration.
+Unchecked Manager items are owned by or require the Extension Manager and
+vLLM-Ascend teams. They do not block an import-only extension-side hand-off,
+but they block active runtime enablement and any claim of complete formal
+Manager integration.

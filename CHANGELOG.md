@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Align the Extension Bundle with Manifest `0.2-experimental` identity
+  `org.vllm-hust.ascend-quant-runtime` and the `in_process_plugin` host model.
+- Replace the advertised runtime carrier with an import-only artifact validator;
+  enabled Manager plan/render now fail closed until vLLM-Ascend publishes the
+  quantized-artifact loader and operator-selection protocols.
+- Add duplicate scheme-registration rejection, source provenance, Python 3.12
+  CI, linting, package metadata checks, and updated Manager hand-off documents.
+
 All notable changes are documented here. The project uses semantic versioning
 for each Python distribution.
 

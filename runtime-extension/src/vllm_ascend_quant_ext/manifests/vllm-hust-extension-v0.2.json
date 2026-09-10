@@ -1,51 +1,54 @@
 {
   "schema_version": "0.2-experimental",
-  "extension_id": "org.vllm-hust.ascend-quant",
+  "extension_id": "org.vllm-hust.ascend-quant-runtime",
   "extension_version": "0.3.0",
-  "kind": "model_weight_quantization_runtime",
+  "kind": "in_process_plugin",
   "host": {
-    "provider": "vllm-ascend",
-    "name": "vLLM Ascend",
-    "version_range": ">=0.1.dev2790,<0.2",
-    "api_range": ">=1,<2"
+    "provider": "vllm",
+    "name": "vllm-ascend",
+    "version_range": ">=0"
   },
   "runtime": {
     "type": "python",
-    "process_scope": "model_worker",
+    "process_scope": "vllm-ascend-worker",
     "isolation": "trusted_in_process"
   },
-  "lifecycle_owner": "host",
+  "lifecycle_owner": "vllm",
   "protocols": [
     {
-      "name": "vllm-ascend.quantization.scheme",
+      "name": "vllm.ascend.quantized-artifact-loader",
       "version_range": ">=1,<2"
     },
     {
-      "name": "ascend-quant-artifact",
+      "name": "vllm.ascend.quantized-operator-selection",
       "version_range": ">=1,<2"
     }
   ],
   "implementation": [
     {
       "type": "python_module",
-      "module": "vllm_ascend_quant_ext.adapters.vllm_hust.runtime",
-      "object": "AscendQuantRuntimeComponent",
-      "status": "active"
+      "module": "vllm_ascend_quant_ext.contract",
+      "object": "ArtifactContractValidator",
+      "status": "import_only"
     }
   ],
   "requires_services": [],
   "components": [
     {
-      "component_id": "w8a8-runtime",
+      "component_id": "ascend-quant-artifact-validator",
       "contracts": [
-        "vllm-ascend.quantization.scheme.v1"
+        "vllm.ascend.quantized-artifact-loader.v1"
       ],
       "execution_planes": [
-        "model_worker"
+        "worker",
+        "device"
       ],
       "isolation": "trusted_in_process",
-      "implementation_ref": "vllm_ascend_quant_ext.adapters.vllm_hust.runtime:AscendQuantRuntimeComponent",
-      "permissions": []
+      "implementation_ref": "vllm_ascend_quant_ext.contract:ArtifactContractValidator",
+      "permissions": [
+        "filesystem_read",
+        "device_access"
+      ]
     }
   ],
   "activation": {

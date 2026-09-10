@@ -10,11 +10,12 @@
 |---|---|
 | Distribution | `vllm-ascend-quant-ext` |
 | Python package | `vllm_ascend_quant_ext` |
-| Bundle ID | `org.vllm-hust.ascend-quant` |
-| Component ID | `w8a8-runtime` |
-| Contract | `vllm-ascend.quantization.scheme.v1` |
-| Execution plane | `model_worker` |
-| Lifecycle owner | `host` |
+| Bundle ID | `org.vllm-hust.ascend-quant-runtime` |
+| Component ID | `ascend-quant-artifact-validator` |
+| Contract | `vllm.ascend.quantized-artifact-loader.v1` |
+| Execution planes | `worker`, `device` |
+| Lifecycle owner | `vllm` |
+| Implementation status | `import_only` |
 
 以上名称暂按当前设计使用。Manager 或 vLLM-Ascend 团队确认正式命名后，必须
 同时修改 manifest、entry point、测试和文档，不能只修改其中一处。
@@ -36,7 +37,7 @@ runtime-extension/src/vllm_ascend_quant_ext/_version.py
 
 ```text
 vllm_hust.extension_bundles:
-  org.vllm-hust.ascend-quant = vllm_ascend_quant_ext.manifests
+  org.vllm-hust.ascend-quant-runtime = vllm_ascend_quant_ext.manifests
 ```
 
 manifest 位于：
@@ -45,10 +46,11 @@ manifest 位于：
 vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json
 ```
 
-Bundle activation 当前保持为空。Manager 发现 Bundle 不会自动设置环境变量、
-修改模型或注入未知 vLLM 参数。`vllm.general_plugins/vllm_ascend_quant` 仅用于
-现阶段的直接诊断，不是正式 Manager activation。正式启动依赖 vLLM-Ascend
-接受 typed quantization component seam。
+Bundle activation 保持为空，implementation 为 `import_only`。Manager 可以发现、
+检查，但启用时必须拒绝 plan/render；它不会自动设置环境变量、修改模型或注入
+未知 vLLM 参数。`vllm.general_plugins/vllm_ascend_quant` 仅用于直接诊断，不是
+正式 Manager activation。正式启动依赖 vLLM-Ascend 发布版本化量化产物加载与
+算子选择协议。
 
 `JXD_W8A8_PDMIX` 只作为命名空间别名委托给 vLLM-Ascend 原生 `W8A8_MIX`
 linear/MoE Scheme。权重加载、参数布局、运行角色选择和 NPU 算子仍由
@@ -111,7 +113,7 @@ python - <<'PY'
 from importlib.metadata import entry_points
 
 for ep in entry_points(group="vllm_hust.extension_bundles"):
-    if ep.name == "org.vllm-hust.ascend-quant":
+    if ep.name == "org.vllm-hust.ascend-quant-runtime":
         print(ep.name, "->", ep.value)
 PY
 ```
@@ -119,7 +121,7 @@ PY
 预期输出：
 
 ```text
-org.vllm-hust.ascend-quant -> vllm_ascend_quant_ext.manifests
+org.vllm-hust.ascend-quant-runtime -> vllm_ascend_quant_ext.manifests
 ```
 
 仅进行旧路径诊断时，必须显式提供开关与量化模型路径。生产接入不应依赖此
@@ -135,11 +137,11 @@ export VLLM_ASCEND_QUANT_ARTIFACT=/path/to/quantized-model
 当前仓库能完成 Bundle 的构建、静态发现、隔离安装和卸载验证，但不能替代
 Manager/Host 的正式联调。公开发布前需要 Manager 团队确认：
 
-1. `kind`、Bundle ID、component ID 和 contract 名称；
-2. manifest 0.2 的严格 schema；
-3. host 如何把模型路径及不可变 artifact identity 传给 model worker；
-4. typed carrier 的实例化、错误传播、disable/uninstall 生命周期；
-5. `vllm-hust-ext check/plan/render` 的正式命令与输出契约。
+1. manifest 0.2 的严格 schema 与 Bundle identity；
+2. `vllm.ascend.quantized-artifact-loader.v1`；
+3. `vllm.ascend.quantized-operator-selection.v1`；
+4. Host 如何把模型路径及不可变 artifact identity 传给 worker；
+5. typed carrier 的实例化、错误传播、disable/uninstall 生命周期。
 
 任何一项未匹配都必须拒绝启用，不允许自动回退到未声明的量化算子。
 
@@ -148,7 +150,7 @@ Manager/Host 的正式联调。公开发布前需要 Manager 团队确认：
 1. 更新 `_version.py`、CHANGELOG 和 manifest 版本；
 2. 运行单测、wheel/sdist 构建及隔离安装验证；
 3. 在匹配软件栈的 Ascend 机器完成 W8A8 正确性与性能回归；
-4. 提交 Manager 的 discover/check/plan/render 联调证据；
+4. 提交 Manager discover/check 与 import-only 拒绝启用证据；
 5. 创建 Git tag 和 GitHub Release；
 6. Manager 接口稳定后再发布 PyPI alpha。
 

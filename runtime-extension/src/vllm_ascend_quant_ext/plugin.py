@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from pathlib import Path
@@ -66,5 +65,8 @@ def status() -> dict[str, object]:
         "enable_environment_variable": ENABLE_ENV,
         "artifact_environment_variable": ARTIFACT_ENV,
         "entry_point": "vllm.general_plugins/vllm_ascend_quant",
-        "bundle_entry_point": "vllm_hust.extension_bundles/org.vllm-hust.ascend-quant",
+        "bundle_entry_point": (
+            "vllm_hust.extension_bundles/"
+            "org.vllm-hust.ascend-quant-runtime"
+        ),
     }

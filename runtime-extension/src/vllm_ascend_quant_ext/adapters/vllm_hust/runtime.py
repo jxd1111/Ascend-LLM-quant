@@ -1,4 +1,4 @@
-"""Experimental typed carrier for the vLLM-HUST Extension Bundle.
+"""Experimental direct-diagnostic carrier; not advertised by the Bundle.
 
 The module intentionally avoids importing torch, vLLM, or vLLM-Ascend at
 import time.  The host calls ``from_vllm_config`` inside the model worker; only
@@ -12,11 +12,10 @@ from typing import Any
 
 from ...contract import validate_artifact
 
-
-BUNDLE_ID = "org.vllm-hust.ascend-quant"
-COMPONENT_ID = "w8a8-runtime"
+BUNDLE_ID = "org.vllm-hust.ascend-quant-runtime"
+COMPONENT_ID = "w8a8-runtime-diagnostic"
 FULL_COMPONENT_ID = f"{BUNDLE_ID}/{COMPONENT_ID}"
-CONTRACT = "vllm-ascend.quantization.scheme.v1"
+CONTRACT = "unversioned-direct-diagnostic"
 
 
 def _model_path_from_config(vllm_config: Any) -> Path:
@@ -28,7 +27,7 @@ def _model_path_from_config(vllm_config: Any) -> Path:
 
 
 class AscendQuantRuntimeComponent:
-    """Typed W8A8 carrier proposed for the vLLM-Ascend host seam."""
+    """W8A8 carrier used only by explicit, non-Manager diagnostics."""
 
     vllm_ascend_quantization_scheme_api_version = 1
     component_id = FULL_COMPONENT_ID

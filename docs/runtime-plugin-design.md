@@ -146,11 +146,12 @@ The `0.2-experimental` packaging prototype uses the following provisional
 identifiers pending framework-team confirmation:
 
 ```text
-Bundle ID:          org.vllm-hust.ascend-quant
-Component ID:       w8a8-runtime
-Full component ID:  org.vllm-hust.ascend-quant/w8a8-runtime
-Contract:           vllm-ascend.quantization.scheme.v1
-Execution plane:    model_worker
+Bundle ID:          org.vllm-hust.ascend-quant-runtime
+Component ID:       ascend-quant-artifact-validator
+Full component ID:  org.vllm-hust.ascend-quant-runtime/ascend-quant-artifact-validator
+Contract:           vllm.ascend.quantized-artifact-loader.v1
+Execution planes:   worker, device
+Status:             import_only
 ```
 
 The Bundle is discovered through `vllm_hust.extension_bundles`. The existing
@@ -187,15 +188,14 @@ provides a namespaced alias; it does not fork or emulate the host algorithm.
 Installing the wheel registers metadata but changes no serving behavior.
 No artifact is inspected and no W8A8 implementation module is imported.
 
-### Manager-managed production mode
+### Manager-managed mode (currently import-only)
 
 ```text
-install -> discover -> validate -> configure -> check -> plan -> render
--> launch vLLM-Ascend worker -> worker re-admission -> scheme registration
+install -> discover -> validate -> configure -> check
+-> enabled plan/render refused until Host protocols are approved
 ```
 
-This is the only production target. The Manager must merge plugin selections
-and preserve the `ascend` platform plugin.
+This is the intended production target, not a current activation claim.
 
 ### Direct diagnostic mode
 
@@ -220,7 +220,7 @@ diagnostic only.
 The framework team must freeze:
 
 1. manifest schema and discovery path;
-2. typed `model_weight_quantization_runtime` materializer;
+2. typed quantized-artifact loader and operator-selection protocols;
 3. stable scheme registry and duplicate-registration behavior;
 4. stable parameter-spec and post-load interfaces;
 5. runtime capability descriptor, including execution role;

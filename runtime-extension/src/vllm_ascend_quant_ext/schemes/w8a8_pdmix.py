@@ -26,10 +26,18 @@ class JXDW8A8PDMixFusedMoeMethod(AscendW8A8PDMixFusedMoeMethod):
 
 def register_schemes() -> list[str]:
     registered: list[str] = []
-    if get_scheme_class(RUNTIME_QUANT_TYPE, "linear") is None:
+    linear = get_scheme_class(RUNTIME_QUANT_TYPE, "linear")
+    if linear is None:
         register_scheme(RUNTIME_QUANT_TYPE, "linear")(JXDW8A8PDMixLinearMethod)
         registered.append(f"{RUNTIME_QUANT_TYPE}/linear")
-    if get_scheme_class(RUNTIME_QUANT_TYPE, "moe") is None:
+    elif linear is not JXDW8A8PDMixLinearMethod:
+        raise RuntimeError(
+            f"scheme registration collision: {RUNTIME_QUANT_TYPE}/linear"
+        )
+    moe = get_scheme_class(RUNTIME_QUANT_TYPE, "moe")
+    if moe is None:
         register_scheme(RUNTIME_QUANT_TYPE, "moe")(JXDW8A8PDMixFusedMoeMethod)
         registered.append(f"{RUNTIME_QUANT_TYPE}/moe")
+    elif moe is not JXDW8A8PDMixFusedMoeMethod:
+        raise RuntimeError(f"scheme registration collision: {RUNTIME_QUANT_TYPE}/moe")
     return registered

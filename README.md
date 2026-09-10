@@ -108,50 +108,57 @@ python -m pip install -e /root/jxd-ascend-quant/runtime-extension \
   --no-build-isolation
 
 vllm-ascend-quant-ext check --model /path/to/model
-vllm-ascend-quant-ext plan --model /path/to/model
-vllm-ascend-quant-ext render --model /path/to/model
+vllm-ascend-quant-ext plan --model /path/to/model   # direct diagnostic only
+vllm-ascend-quant-ext render --model /path/to/model # direct diagnostic only
 ```
 
-Installation alone has no runtime effect. `check`, `plan`, and `render` are
-read-only. The rendered environment explicitly selects the artifact and enables
-the extension for the next vLLM start. Contract admission completes before
-torch or vLLM-Ascend implementation modules are imported.
+Installation alone has no runtime effect. All commands are read-only. The
+extension's own `plan` and `render` commands describe the already tested direct
+diagnostic path; they are not Extension Manager activation evidence.
 
 The runtime wheel registers the experimental Extension Bundle
-`org.vllm-hust.ascend-quant` through `vllm_hust.extension_bundles`. Its static
+`org.vllm-hust.ascend-quant-runtime` through
+`vllm_hust.extension_bundles`. Its static
 manifest is packaged under
 `vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json`; discovery does
 not import the runtime implementation.
 
-Target Manager flow, once the host provider admits the
-`model_weight_quantization_runtime` kind:
+The Bundle follows Manifest `0.2-experimental` as an `in_process_plugin`, but
+its implementation status is deliberately `import_only`. Manager discovery,
+inspection, and contract checks are supported; Manager enable/plan/render must
+fail closed until vLLM-Ascend publishes the declared versioned loader and
+operator-selection protocols.
+
+Current Manager inspection flow:
 
 ```bash
 pip install vllm-hust-ext
 pip install vllm-ascend-quant-ext
-vllm-hust-ext extension check org.vllm-hust.ascend-quant
+vllm-hust-ext extension inspect org.vllm-hust.ascend-quant-runtime
+vllm-hust-ext extension check org.vllm-hust.ascend-quant-runtime
 ```
 
 The provisional Bundle/component identities used during framework review are:
 
 ```text
-Bundle:    org.vllm-hust.ascend-quant
-Component: org.vllm-hust.ascend-quant/w8a8-runtime
-Contract:  vllm-ascend.quantization.scheme.v1
-Plane:     model_worker
+Bundle:    org.vllm-hust.ascend-quant-runtime
+Component: org.vllm-hust.ascend-quant-runtime/ascend-quant-artifact-validator
+Contract:  vllm.ascend.quantized-artifact-loader.v1
+Planes:    worker, device
+Status:    import_only
 ```
 
 Use the Bundle ID, rather than the Python distribution name, in Manager
 commands once the proposed kind/provider is admitted:
 
 ```bash
-vllm-hust-ext extension inspect org.vllm-hust.ascend-quant
-vllm-hust-ext extension check org.vllm-hust.ascend-quant
+vllm-hust-ext extension inspect org.vllm-hust.ascend-quant-runtime
+vllm-hust-ext extension check org.vllm-hust.ascend-quant-runtime
 ```
 
-Until that Manager kind/materializer is available in the deployed Manager,
-use the extension's own `check/plan/render` commands; do not describe this as
-Manager admission evidence.
+Do not run or document Manager enablement yet. Until both Host protocols are
+approved, use the extension's own direct-diagnostic commands only for local
+NPU validation and label the results accordingly.
 
 The framework-team hand-off is documented in
 [`docs/extension-manager-handoff.md`](docs/extension-manager-handoff.md), and

@@ -29,5 +29,6 @@ def test_status_exposes_bundle_and_runtime_entry_points():
     report = status()
     assert report["entry_point"] == "vllm.general_plugins/vllm_ascend_quant"
     assert report["bundle_entry_point"] == (
-        "vllm_hust.extension_bundles/org.vllm-hust.ascend-quant"
+        "vllm_hust.extension_bundles/"
+        "org.vllm-hust.ascend-quant-runtime"
     )

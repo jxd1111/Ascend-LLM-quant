@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,7 +20,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install test and build dependencies
-        run: python -m pip install --upgrade pip setuptools wheel build pytest packaging
+        run: python -m pip install --upgrade pip setuptools wheel build pytest packaging ruff twine
       - name: Install both local distributions
         run: |
           python -m pip install -e . --no-deps --no-build-isolation
@@ -29,11 +29,14 @@ jobs:
         run: python -m pytest -q
       - name: Test runtime extension
         run: python -m pytest -q runtime-extension/tests
+      - name: Lint Python sources
+        run: python -m ruff check .
       - name: Build Toolkit wheel and Runtime Extension wheel plus sdist
         run: |
           python -m pip wheel . --no-deps --no-build-isolation -w dist
           python -m build --wheel --sdist --no-isolation \
             --outdir runtime-extension/dist runtime-extension
+          python -m twine check dist/* runtime-extension/dist/*
       - name: Verify Bundle metadata, isolated install, discovery and uninstall
         run: |
           python runtime-extension/tools/verify_release.py \
