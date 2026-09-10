@@ -1,4 +1,4 @@
 {
   "enabled": true,
-  "model": "/data/jxd/models/Qwen2.5-14B-Instruct-w8a8-pdmix-toolkit-v030"
+  "model": "/models/Qwen2.5-14B-Instruct-w8a8"
 }

@@ -6,18 +6,25 @@ from importlib.metadata import entry_points
 from typing import Callable
 
 from .config import Recipe
-from .recipes.qwen25_w8a8_pdmix import get_recipe as get_builtin_pdmix
+from .recipes.qwen25_w8a8 import get_recipe as get_builtin_w8a8
 
 ENTRY_POINT_GROUP = "jxd_ascend_quant.recipes"
 
 
 def _builtins() -> dict[str, Callable[[], Recipe]]:
-    return {"qwen25-w8a8-pdmix": get_builtin_pdmix}
+    return {"qwen25-w8a8": get_builtin_w8a8}
 
 
 def _entry_point_factories() -> dict[str, Callable[[], Recipe]]:
     factories: dict[str, Callable[[], Recipe]] = {}
     for entry_point in entry_points(group=ENTRY_POINT_GROUP):
+        distribution = getattr(entry_point, "dist", None)
+        distribution_name = getattr(distribution, "name", "")
+        if distribution_name.lower().replace("_", "-") == "ascend-quant-toolkit":
+            # Built-ins above are authoritative for the current source tree.
+            # Ignoring this distribution's installed entry point also makes an
+            # editable-install upgrade safe after a recipe rename.
+            continue
         factories[entry_point.name] = entry_point.load()
     return factories
 
@@ -43,4 +50,3 @@ def get_recipe(name: str) -> Recipe:
             f"Recipe entry point {name!r} returned recipe named {recipe.name!r}"
         )
     return recipe
-

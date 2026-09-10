@@ -15,7 +15,7 @@
 ```mermaid
 flowchart LR
     A[原始模型与校准集] --> B[Ascend Quant Toolkit]
-    B --> C[W8A8 PDMix 量化产物]
+    B --> C[W8A8 量化产物]
     C --> D[Extension Manager]
     D -->|check / plan / render| E[Runtime Extension]
     E -->|注册 namespaced Scheme| F[vLLM-Ascend]
@@ -51,16 +51,11 @@ flowchart LR
 模型权重/激活量化与 Adaptive Quantized KV 是两条独立能力线，不共享 manifest、
 生命周期或兼容声明。
 
-## 4. W8A8 Static、Dynamic 与 PDMix
+## 4. W8A8 量化方案
 
-| Profile | 激活策略 | 权重策略 |
-|---|---|---|
-| Static | 离线 per-tensor scale/offset | 离线 INT8 per-channel |
-| Dynamic | 运行时 per-token scale | 离线 INT8 per-channel |
-| PDMix | 根据明确的运行时角色选择 Static/Dynamic | Static 参数超集 |
-
-PDMix 名称来源于 ModelSlim 离线配置 `act.scope: pd_mix`，表示量化算法和
-模型产物 Profile。它不是由运行时 P/D 角色命名的。
+当前验证方案对权重和激活都使用 INT8。权重采用离线 per-channel 量化；激活
+执行路径由 vLLM-Ascend 根据运行角色选择。具体 ModelSlim 参数属于 Toolkit
+内部 recipe，不作为插件名称或公共运行时类型的一部分。
 
 当前 vLLM-Ascend 的运行时选择为：
 
@@ -69,8 +64,8 @@ execution_role=kv_consumer            → static W8A8
 execution_role=standalone/kv_producer → dynamic W8A8
 ```
 
-`execution_role` 只选择执行路径，不改变产物的 PDMix 属性，也不启用 KV-cache
-量化。其稳定 Host API 仍需 vLLM-Ascend 团队确认。
+`execution_role` 只选择 W8A8 执行路径，也不启用 KV-cache 量化。其稳定 Host
+API 仍需 vLLM-Ascend 团队确认。
 
 ## 5. 插件输入与输出
 
@@ -114,7 +109,7 @@ install → discover → check → plan → render → start
 安装 wheel 默认不生效。Manager 和 Runtime Extension 始终只读模型目录；worker
 启动时再次校验 artifact identity，避免 plan/start 之间产物变化。禁用或卸载
 只移除插件选择和环境状态，模型文件保持不变。若 active metadata 使用
-`JXD_W8A8_PDMIX`，卸载前后都必须显式运行 Toolkit 的 `restore-modelslim` 才能
+`ASCEND_QUANT_W8A8`，卸载前后都必须显式运行 Toolkit 的 `restore-modelslim` 才能
 恢复原生 `W8A8_MIX` 路径；恢复命令会校验 active metadata，发现后续修改则拒绝
 覆盖。
 
@@ -125,7 +120,7 @@ install → discover → check → plan → render → start
 
 已经完成：
 
-- Qwen2.5-14B W8A8 PDMix 离线量化；
+- Qwen2.5-14B W8A8 离线量化；
 - 版本化 Artifact Contract 和严格 validator；
 - 独立 Runtime Extension wheel；
 - 默认禁用、只读 admission 和 namespaced Scheme；
@@ -168,7 +163,7 @@ Extension Manager and public Host API confirmation pending.
 3. Extension Manager 的 manifest 和 typed Provider/Materializer API；
 4. vLLM-Ascend 的公共 namespaced Scheme 注册接口；
 5. parameter specification 和 post-load layout API；
-6. PDMix `execution_role` 的稳定来源；
+6. W8A8 `execution_role` 的稳定来源；
 7. 缺失 optimized kernel 时的 fail-closed 策略。
 
 评审讨论集中在

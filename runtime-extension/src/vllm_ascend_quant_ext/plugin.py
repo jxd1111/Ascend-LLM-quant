@@ -26,8 +26,8 @@ def register_artifact(artifact: str | Path) -> list[str]:
         raise RuntimeError(f"Ascend quant artifact admission failed: {exc}") from exc
 
     runtime_type = report["runtime_quant_type"]
-    if runtime_type == "JXD_W8A8_PDMIX":
-        from .schemes.w8a8_pdmix import register_schemes
+    if runtime_type == "ASCEND_QUANT_W8A8":
+        from .schemes.w8a8 import register_schemes
 
         registered = register_schemes()
         LOGGER.info("Ascend quant runtime admitted %s; registered=%s", artifact_path, registered)

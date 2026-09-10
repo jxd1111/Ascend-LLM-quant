@@ -1,7 +1,7 @@
 apiversion: modelslim_v1
 
 metadata:
-  config_id: qwen2.5-14b-w8a8-pdmix-a030
+  config_id: qwen2.5-14b-w8a8-a030
   score: 90
   verified_model_types:
     - Qwen2.5-14B-Instruct
@@ -50,4 +50,3 @@ spec:
   save:
     - type: ascendv1_saver
       part_file_size: 4
-

@@ -15,9 +15,9 @@ Exit criterion: both teams approve the input/output and lifecycle boundary.
 
 - replace imports of concrete host W8A8 implementations with an accepted
   public SPI or plugin-owned namespaced implementations;
-- add `JXD_W8A8_STATIC`, `JXD_W8A8_DYNAMIC` and the `JXD_W8A8_PDMIX`
-  profile, preserving the offline `act.scope: pd_mix` semantics;
-- keep the PDMix artifact profile separate from runtime execution role, and
+- add the generic `ASCEND_QUANT_W8A8` runtime profile while preserving the
+  validated offline recipe semantics;
+- keep the W8A8 artifact profile separate from runtime execution role, and
   test standalone/producer/consumer path selection;
 - validate operator availability before model allocation;
 - cover Linear and, separately, MoE parameter shapes and TP/EP behavior.
@@ -60,7 +60,7 @@ artifact/API contract, or a versioned contract update.
 3. Should fused-module prefix mapping be host metadata or artifact metadata?
 4. How should Manager plans bind an artifact hash so worker admission detects a
    plan/start time-of-check-to-time-of-use change?
-5. Which host API reports the execution role used by the PDMix runtime-path
+5. Which host API reports the execution role used by the W8A8 runtime-path
    selector without coupling this plugin to
    KV-cache implementation details?
 6. What is the supported fallback policy when an optimized kernel is absent?

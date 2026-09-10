@@ -26,15 +26,15 @@ def write_safetensors(path: Path, tensors: dict[str, tuple[str, list[int]]]) -> 
 def make_artifact(path: Path) -> dict:
     config = {"model_type": "qwen2", "architectures": ["Qwen2ForCausalLM"]}
     description = {
-        "layer.weight": "JXD_W8A8_PDMIX",
-        "layer.weight_scale": "JXD_W8A8_PDMIX",
-        "layer.weight_offset": "JXD_W8A8_PDMIX",
-        "layer.input_scale": "JXD_W8A8_PDMIX",
-        "layer.input_offset": "JXD_W8A8_PDMIX",
-        "layer.deq_scale": "JXD_W8A8_PDMIX",
-        "layer.quant_bias": "JXD_W8A8_PDMIX",
+        "layer.weight": "ASCEND_QUANT_W8A8",
+        "layer.weight_scale": "ASCEND_QUANT_W8A8",
+        "layer.weight_offset": "ASCEND_QUANT_W8A8",
+        "layer.input_scale": "ASCEND_QUANT_W8A8",
+        "layer.input_offset": "ASCEND_QUANT_W8A8",
+        "layer.deq_scale": "ASCEND_QUANT_W8A8",
+        "layer.quant_bias": "ASCEND_QUANT_W8A8",
         "version": "1.0.0",
-        "model_quant_type": "JXD_W8A8_PDMIX",
+        "model_quant_type": "ASCEND_QUANT_W8A8",
         "metadata": {},
         "group_size": 0,
         "optional": {},
@@ -64,7 +64,7 @@ def make_artifact(path: Path) -> dict:
         "quantization": {
             "scheme": "W8A8",
             "producer_quant_type": "W8A8_MIX",
-            "runtime_quant_type": "JXD_W8A8_PDMIX",
+            "runtime_quant_type": "ASCEND_QUANT_W8A8",
             "weight": {"bits": 8, "storage_dtype": "int8", "signed": True, "packing": "none", "layout": "logical_out_in", "granularity": "per_channel", "axis": 0, "group_size": None},
             "activation": {"bits": 8, "dtype": "int8", "granularity": "pd_mix", "dynamic": True},
             "scale": {"dtype": "float32", "weight_shape": "out_1", "activation_shape": "one", "scale_bias": "forbidden"},

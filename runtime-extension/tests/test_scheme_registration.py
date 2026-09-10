@@ -21,23 +21,23 @@ def _load_scheme_module(monkeypatch):
     vllm_ascend = types.ModuleType("vllm_ascend")
     quantization = types.ModuleType("vllm_ascend.quantization")
     methods = types.ModuleType("vllm_ascend.quantization.methods")
-    pdmix = types.ModuleType("vllm_ascend.quantization.methods.w8a8_pdmix")
+    native_w8a8 = types.ModuleType("vllm_ascend.quantization.methods.w8a8_pdmix")
     vllm_ascend.__path__ = []
     quantization.__path__ = []
     methods.__path__ = []
     methods.get_scheme_class = get_scheme_class
     methods.register_scheme = register_scheme
-    pdmix.AscendW8A8PDMixLinearMethod = type("NativeLinear", (), {})
-    pdmix.AscendW8A8PDMixFusedMoeMethod = type("NativeMoe", (), {})
+    native_w8a8.AscendW8A8PDMixLinearMethod = type("NativeLinear", (), {})
+    native_w8a8.AscendW8A8PDMixFusedMoeMethod = type("NativeMoe", (), {})
     monkeypatch.setitem(sys.modules, "vllm_ascend", vllm_ascend)
     monkeypatch.setitem(sys.modules, "vllm_ascend.quantization", quantization)
     monkeypatch.setitem(sys.modules, "vllm_ascend.quantization.methods", methods)
     monkeypatch.setitem(
         sys.modules,
         "vllm_ascend.quantization.methods.w8a8_pdmix",
-        pdmix,
+        native_w8a8,
     )
-    module_name = "vllm_ascend_quant_ext.schemes.w8a8_pdmix"
+    module_name = "vllm_ascend_quant_ext.schemes.w8a8"
     monkeypatch.delitem(sys.modules, module_name, raising=False)
     return importlib.import_module(module_name), registry
 
@@ -45,8 +45,8 @@ def _load_scheme_module(monkeypatch):
 def test_registration_is_idempotent(monkeypatch):
     module, registry = _load_scheme_module(monkeypatch)
     assert module.register_schemes() == [
-        "JXD_W8A8_PDMIX/linear",
-        "JXD_W8A8_PDMIX/moe",
+        "ASCEND_QUANT_W8A8/linear",
+        "ASCEND_QUANT_W8A8/moe",
     ]
     assert module.register_schemes() == []
     assert len(registry) == 2

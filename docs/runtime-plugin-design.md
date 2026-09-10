@@ -83,12 +83,10 @@ TP/EP configuration
 execution_role = standalone | kv_producer | kv_consumer
 ```
 
-The artifact independently declares `quantization.scheme: W8A8` and
-`activation.granularity: pd_mix`. PDMix is the offline quantization
-algorithm/profile; `execution_role` is host runtime input and does not rename
-or redefine that profile. For a PDMix artifact it selects the static or dynamic
-runtime path. It does not authorize KV-cache quantization and is independent of
-the Adaptive Quantized KV extension.
+The artifact declares `quantization.scheme: W8A8`. `execution_role` is a host
+runtime input that selects the appropriate W8A8 execution path. It does not
+authorize KV-cache quantization and is independent of the Adaptive Quantized KV
+extension.
 
 ### Layer input
 
@@ -111,7 +109,7 @@ optional bias [N]
   "admitted": true,
   "artifact_id": "...",
   "scheme": "W8A8",
-  "runtime_quant_type": "JXD_W8A8_PDMIX",
+  "runtime_quant_type": "ASCEND_QUANT_W8A8",
   "required_operators": ["torch_npu.npu_dynamic_quant", "torch_npu.npu_quant_matmul"],
   "implementation_imported": false
 }
@@ -129,11 +127,11 @@ modifies the model.
 
 ### Scheme registration
 
-The current extension registers only the namespaced PDMix aliases:
+The current extension registers only the namespaced W8A8 aliases:
 
 ```text
-JXD_W8A8_PDMIX/linear
-JXD_W8A8_PDMIX/moe
+ASCEND_QUANT_W8A8/linear
+ASCEND_QUANT_W8A8/moe
 ```
 
 They subclass the native vLLM-Ascend `W8A8_MIX` implementations instead of
@@ -172,12 +170,12 @@ layout required by the admitted operator.
 |---|---|---|---|
 | static | offline per-tensor activation scale/offset | offline INT8 per-channel | vLLM quantize + NPU quant matmul |
 | dynamic | runtime per-token scale | offline INT8 per-channel | NPU dynamic quant + NPU quant matmul |
-| PDMix (`activation.granularity=pd_mix`) | static for `kv_consumer`, dynamic otherwise | static-parameter superset | selected using the independent `execution_role` input |
+| validated W8A8 profile | static for `kv_consumer`, dynamic otherwise | offline INT8 parameters | selected using the independent `execution_role` input |
 
-A standalone service therefore uses the dynamic runtime path, but its artifact
-and quantization profile remain PDMix.
+A standalone service therefore uses the dynamic runtime path while the artifact
+remains identified simply as W8A8.
 
-The PDMix algorithm, operator rounding/saturation and physical FRACTAL_NZ
+The selected W8A8 algorithm, operator rounding/saturation and physical FRACTAL_NZ
 layout remain host-owned contracts. The plugin validates the artifact and
 provides a namespaced alias; it does not fork or emulate the host algorithm.
 

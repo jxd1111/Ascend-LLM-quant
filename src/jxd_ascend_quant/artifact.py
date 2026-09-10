@@ -46,7 +46,9 @@ def _quant_type_counts(description: Any) -> Counter[str]:
         elif isinstance(value, list):
             for nested in value:
                 visit(nested)
-        elif isinstance(value, str) and value.startswith(("W", "INT", "FAK", "JXD_")):
+        elif isinstance(value, str) and value.startswith(
+            ("W", "INT", "FAK", "ASCEND_QUANT_")
+        ):
             counts[value] += 1
 
     visit(description)

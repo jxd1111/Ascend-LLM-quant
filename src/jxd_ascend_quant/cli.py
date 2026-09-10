@@ -159,7 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_parser = subparsers.add_parser("inspect-model", help="Validate a quantized model artifact")
     inspect_parser.add_argument("--model", required=True)
     inspect_parser.add_argument("--write-manifest", action="store_true")
-    inspect_parser.add_argument("--recipe", default="qwen25-w8a8-pdmix")
+    inspect_parser.add_argument("--recipe", default="qwen25-w8a8")
     inspect_parser.set_defaults(handler=command_inspect)
 
     prepare_parser = subparsers.add_parser(
@@ -167,7 +167,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Convert ModelSlim metadata to the plugin-owned runtime type",
     )
     prepare_parser.add_argument("--model", required=True)
-    prepare_parser.add_argument("--recipe", default="qwen25-w8a8-pdmix")
+    prepare_parser.add_argument("--recipe", default="qwen25-w8a8")
     prepare_parser.add_argument("--source-model")
     prepare_parser.set_defaults(handler=command_prepare_runtime)
 
@@ -176,7 +176,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Restore the backed-up ModelSlim quantization description",
     )
     restore_parser.add_argument("--model", required=True)
-    restore_parser.add_argument("--recipe", default="qwen25-w8a8-pdmix")
+    restore_parser.add_argument("--recipe", default="qwen25-w8a8")
     restore_parser.set_defaults(handler=command_restore_modelslim)
 
     doctor_parser = subparsers.add_parser("doctor", help="Inspect the active Python environment")
@@ -188,7 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write the versioned runtime artifact contract during offline preparation",
     )
     contract_parser.add_argument("--model", required=True)
-    contract_parser.add_argument("--recipe", default="qwen25-w8a8-pdmix")
+    contract_parser.add_argument("--recipe", default="qwen25-w8a8")
     contract_parser.add_argument(
         "--evidence-level",
         choices=("schema_only", "correctness", "npu_e2e", "matched_benchmark"),

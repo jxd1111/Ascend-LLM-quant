@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ascend-quant-toolkit"
-version = "0.3.0"
+version = "0.4.0"
 description = "Offline calibration, conversion, artifact export, and evaluation tools for Ascend quantization"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,7 +26,7 @@ jxd-quant = "jxd_ascend_quant.cli:main"
 ascend-quant-toolkit = "jxd_ascend_quant.cli:main"
 
 [project.entry-points."jxd_ascend_quant.recipes"]
-qwen25-w8a8-pdmix = "jxd_ascend_quant.recipes.qwen25_w8a8_pdmix:get_recipe"
+qwen25-w8a8 = "jxd_ascend_quant.recipes.qwen25_w8a8:get_recipe"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

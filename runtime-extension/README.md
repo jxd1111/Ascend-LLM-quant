@@ -61,8 +61,8 @@ That prevents partial integration from starting an unsafe legacy path. Formal
 activation remains blocked until vLLM-Ascend accepts and materializes both
 declared Host protocols.
 
-The namespaced `JXD_W8A8_PDMIX` registration delegates to vLLM-Ascend's native
-`W8A8_MIX` linear and MoE implementations. The extension owns admission and
+The namespaced `ASCEND_QUANT_W8A8` registration delegates to the selected
+vLLM-Ascend W8A8 linear and MoE implementations. The extension owns admission and
 alias registration, while vLLM-Ascend continues to own weight loading,
 parameter layout, execution-role selection, and NPU operators.
 

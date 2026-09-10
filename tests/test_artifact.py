@@ -44,14 +44,14 @@ def test_write_manifest_records_recipe_and_source(tmp_path: Path):
 
     destination = write_manifest(
         tmp_path,
-        get_recipe("qwen25-w8a8-pdmix"),
+        get_recipe("qwen25-w8a8"),
         source_model=source_model,
     )
     manifest = json.loads(destination.read_text())
 
     assert manifest["schema_version"] == 2
     assert manifest["recipe"]["producer_quant_type"] == "W8A8_MIX"
-    assert manifest["recipe"]["runtime_quant_type"] == "JXD_W8A8_PDMIX"
+    assert manifest["recipe"]["runtime_quant_type"] == "ASCEND_QUANT_W8A8"
     assert manifest["source_model"] == str(source_model.resolve())
 
 
@@ -64,7 +64,7 @@ def test_prepare_runtime_metadata_is_atomic_and_idempotent(tmp_path: Path):
         "version": {"format": "1.0.0"},
     }
     description_path.write_text(json.dumps(original))
-    recipe = get_recipe("qwen25-w8a8-pdmix")
+    recipe = get_recipe("qwen25-w8a8")
 
     first = prepare_runtime_metadata(tmp_path, recipe)
     second = prepare_runtime_metadata(tmp_path, recipe)
@@ -76,7 +76,7 @@ def test_prepare_runtime_metadata_is_atomic_and_idempotent(tmp_path: Path):
     assert first["changed"] is True
     assert first["replacements"] == 2
     assert second["changed"] is False
-    assert migrated["layer.weight"] == "JXD_W8A8_PDMIX"
+    assert migrated["layer.weight"] == "ASCEND_QUANT_W8A8"
     assert migrated["lm_head.weight"] == "FLOAT"
     assert backup == original
 
@@ -96,7 +96,7 @@ def test_restore_modelslim_refuses_to_overwrite_modified_runtime_metadata(tmp_pa
     description_path = tmp_path / "quant_model_description.json"
     original = {"layer.weight": "W8A8_MIX", "lm_head.weight": "FLOAT"}
     description_path.write_text(json.dumps(original))
-    recipe = get_recipe("qwen25-w8a8-pdmix")
+    recipe = get_recipe("qwen25-w8a8")
     prepare_runtime_metadata(tmp_path, recipe)
 
     modified = json.loads(description_path.read_text())
@@ -114,13 +114,13 @@ def test_runtime_contract_records_closed_w8a8_format(tmp_path: Path):
         json.dumps({"model_type": "qwen2", "architectures": ["Qwen2ForCausalLM"]})
     )
     (tmp_path / "quant_model_description.json").write_text(
-        json.dumps({"layer.weight": "JXD_W8A8_PDMIX"})
+        json.dumps({"layer.weight": "ASCEND_QUANT_W8A8"})
     )
     (tmp_path / "weights.safetensors").write_bytes(b"weights")
 
     destination = write_runtime_contract(
         tmp_path,
-        get_recipe("qwen25-w8a8-pdmix"),
+        get_recipe("qwen25-w8a8"),
         evidence_level="npu_e2e",
         verified_profiles=["W8A8"],
         evidence_results=["results/qwen25-w8a8-e2e.json"],

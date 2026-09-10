@@ -18,7 +18,7 @@
 
 当前状态：
 
-- W8A8 PDMix 的 Toolkit → Runtime Extension → Ascend NPU 推理已验证；
+- W8A8 的 Toolkit → Runtime Extension → Ascend NPU 推理已验证；
 - Runtime Extension 原型、产物契约和 fail-closed 校验已实现；
 - Extension Manager 正式接入及 vLLM-Ascend 公共 Scheme API 待框架团队评审；
 - W4A4/W4A8 尚未声明为真实硬件验证能力。
@@ -66,9 +66,9 @@ command is `ascend-quant-toolkit`.
 ascend-quant-toolkit doctor --path /data/jxd
 ascend-quant-toolkit list-recipes
 ascend-quant-toolkit plan \
-  --recipe qwen25-w8a8-pdmix \
+  --recipe qwen25-w8a8 \
   --model /root/models/Qwen2.5-14B-Instruct \
-  --output /data/jxd/models/Qwen2.5-14B-Instruct-w8a8-pdmix \
+  --output /data/jxd/models/Qwen2.5-14B-Instruct-w8a8 \
   --device npu:7
 ```
 
@@ -85,7 +85,7 @@ For a previously produced plugin-format model, export the contract explicitly:
 ```bash
 ascend-quant-toolkit export-contract \
   --model /path/to/model \
-  --recipe qwen25-w8a8-pdmix \
+  --recipe qwen25-w8a8 \
   --evidence-level schema_only
 ```
 
@@ -192,14 +192,14 @@ secondary scale tensors as ordinary per-group scales.
 The Manager and runtime extension never rewrite model files. Disabling the
 extension removes its environment selection on the next start. Uninstalling
 the runtime wheel removes its registration, but an artifact whose active
-metadata contains `JXD_W8A8_PDMIX` still requires the extension. Returning that
+metadata contains `ASCEND_QUANT_W8A8` still requires the extension. Returning that
 artifact to the native vLLM-Ascend `W8A8_MIX` path is therefore an explicit
 offline Toolkit operation:
 
 ```bash
 ascend-quant-toolkit restore-modelslim \
   --model /path/to/model \
-  --recipe qwen25-w8a8-pdmix
+  --recipe qwen25-w8a8
 ```
 
 The command atomically restores `quant_model_description.json` byte-for-byte

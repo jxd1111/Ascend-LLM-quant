@@ -143,15 +143,15 @@ passes them to the selected fused-expert communication/operator path. It also
 contains EPLB and fused-MC2-specific preparation; these are host capabilities,
 not portable quantization algorithm semantics.
 
-## W8A8 PDMix
+## Validated W8A8 profile
 
 Current registrations: `("W8A8_MIX", "linear")` and
 `("W8A8_MIX", "moe")`.
 
-The PDMix name originates from the offline ModelSlim activation-quantization
-configuration `act.scope: pd_mix`. It identifies the quantization
-algorithm/profile and the resulting parameter set; it is not derived from the
-runtime deployment role.
+The offline recipe selects the activation-quantization algorithm that produced
+the best measured result for the validated model. That algorithm remains an
+implementation detail; the exported artifact and plugin capability are named
+W8A8.
 
 The linear implementation composes the static and dynamic implementations and
 allocates the superset of static parameters. The selection is:
@@ -161,12 +161,10 @@ KV-transfer consumer process -> static W8A8 apply
 all other processes          -> dynamic W8A8 apply
 ```
 
-This runtime branch is a **deployment-role decision**, not the definition or
-origin of PDMix and not a token-by-token prefill/decode branch. A normal
-non-disaggregated server follows the dynamic path for both phases while the
-artifact remains a PDMix artifact. The proposed plugin therefore preserves
-PDMix as the artifact profile and uses a separate explicit `execution_role`
-capability to select its runtime path.
+This runtime branch is a **deployment-role decision**, not a token-by-token
+prefill/decode branch. A normal non-disaggregated server follows the dynamic
+path for both phases. The plugin exports one W8A8 capability and uses a separate
+explicit `execution_role` capability to select its runtime path.
 
 ## Other weight/activation schemes in the same host
 

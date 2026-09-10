@@ -8,7 +8,7 @@ Extension Manager 对接边界和验证证据。离线 Toolkit 与 Runtime Exten
 
 | 顺序 | 文档 | 用途 |
 |---:|---|---|
-| 1 | [中文设计概览](design-overview.zh-CN.md) | 快速理解目标、边界、PDMix 和当前状态 |
+| 1 | [中文设计概览](design-overview.zh-CN.md) | 快速理解目标、边界、W8A8 和当前状态 |
 | 2 | [当前量化架构](current-vllm-ascend-quant-architecture.md) | 了解 vLLM-HUST/vLLM-Ascend 的代码流程、接口和算法 |
 | 3 | [Runtime Extension 设计](runtime-plugin-design.md) | 查看插件输入、输出、注册方式和启动模式 |
 | 4 | [Extension Manager 对接](extension-manager-handoff.md) | 查看 discover/check/plan/render 的交接契约 |
@@ -29,7 +29,7 @@ Extension Manager 对接边界和验证证据。离线 Toolkit 与 Runtime Exten
 
 | 能力 | 状态 |
 |---|---|
-| W8A8 PDMix 离线 Recipe | 已实现 |
+| W8A8 离线 Recipe | 已实现 |
 | 版本化 Artifact Contract | 已实现 |
 | Runtime Extension 独立 wheel | 已实现 |
 | 默认禁用及 fail-closed admission | 已实现 |
