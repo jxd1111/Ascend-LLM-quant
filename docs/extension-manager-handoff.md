@@ -85,8 +85,8 @@ shape contract before any implementation import, then reports
 `enable_allowed=false`. Enabled `plan` and `render` raise an `import_only`
 error. This refusal is intentional.
 
-The `JXD_W8A8_PDMIX` carrier is a namespaced alias of vLLM-Ascend's native
-`W8A8_MIX` linear and MoE schemes. The extension does not own or fork weight
+The `ASCEND_QUANT_W8A8` carrier is a namespaced alias of the selected
+vLLM-Ascend W8A8 linear and MoE schemes. The extension does not own or fork weight
 loading, tensor layout conversion, execution-role selection, or NPU operators.
 
 For a disabled extension, `render` returns the two diagnostic variables in

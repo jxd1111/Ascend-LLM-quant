@@ -17,7 +17,7 @@ from typing import Any
 from . import __version__
 from .config import Recipe
 
-MANIFEST_FILENAME = "jxd_quant_manifest.json"
+MANIFEST_FILENAME = "ascend_quant_manifest.json"
 RUNTIME_CONTRACT_FILENAME = "ascend_quant_artifact.json"
 
 
@@ -46,7 +46,9 @@ def _quant_type_counts(description: Any) -> Counter[str]:
         elif isinstance(value, list):
             for nested in value:
                 visit(nested)
-        elif isinstance(value, str) and value.startswith(("W", "INT", "FAK", "JXD_")):
+        elif isinstance(value, str) and value.startswith(
+            ("W", "INT", "FAK", "ASCEND_QUANT_")
+        ):
             counts[value] += 1
 
     visit(description)

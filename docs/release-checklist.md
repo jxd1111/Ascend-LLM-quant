@@ -13,7 +13,7 @@
 - [x] Manager-facing descriptor/check/plan/render adapter exists.
 - [x] Enabled Manager plan/render fail closed while status is import-only.
 - [x] Disabled render is deterministic and removes only extension-owned state.
-- [x] Namespaced PDMix aliases delegate to host-owned implementations.
+- [x] Namespaced W8A8 aliases delegate to host-owned implementations.
 - [x] Native `W8A8_MIX` metadata restoration is explicit and documented.
 - [x] W8A8 Toolkit to NPU runtime E2E has passed.
 - [x] Wheel/sdist content and isolated install/discovery/uninstall verification is scripted.

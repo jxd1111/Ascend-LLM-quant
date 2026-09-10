@@ -52,7 +52,7 @@ Bundle activation 保持为空，implementation 为 `import_only`。Manager 可�
 正式 Manager activation。正式启动依赖 vLLM-Ascend 发布版本化量化产物加载与
 算子选择协议。
 
-`JXD_W8A8_PDMIX` 只作为命名空间别名委托给 vLLM-Ascend 原生 `W8A8_MIX`
+`ASCEND_QUANT_W8A8` 只作为命名空间别名委托给选定的 vLLM-Ascend W8A8
 linear/MoE Scheme。权重加载、参数布局、运行角色选择和 NPU 算子仍由
 vLLM-Ascend 维护，扩展包不复制这些实现。
 
@@ -157,5 +157,5 @@ Manager/Host 的正式联调。公开发布前需要 Manager 团队确认：
 W4A4/W4A8 可保留契约与测试骨架，但当前发布验收只以已验证的 W8A8 为准。
 
 卸载 wheel 只移除 entry point，不改模型元数据。若模型 active metadata 为
-`JXD_W8A8_PDMIX`，需要在离线 Toolkit 中显式执行 `restore-modelslim` 后才能
+`ASCEND_QUANT_W8A8`，需要在离线 Toolkit 中显式执行 `restore-modelslim` 后才能
 回到原生 `W8A8_MIX` 路径；恢复前后都应记录模型描述文件哈希。

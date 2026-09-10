@@ -20,6 +20,7 @@ BUNDLE_GROUP = "vllm_hust.extension_bundles"
 BUNDLE_ID = "org.vllm-hust.ascend-quant-runtime"
 MANIFEST = "vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json"
 LEGACY_MANIFEST = "vllm_ascend_quant_ext/extension-manifest.json"
+RETIRED_SCHEME = "vllm_ascend_quant_ext/schemes/w8a8_pdmix.py"
 
 
 def _run(*args: str) -> str:
@@ -52,7 +53,7 @@ def _check_wheel(wheel: Path) -> None:
         "vllm_ascend_quant_ext/manifests/__init__.py",
         MANIFEST,
         "vllm_ascend_quant_ext/adapters/vllm_hust/runtime.py",
-        "vllm_ascend_quant_ext/schemes/w8a8_pdmix.py",
+        "vllm_ascend_quant_ext/schemes/w8a8.py",
         ".dist-info/entry_points.txt",
     }
     missing = [suffix for suffix in suffixes if not any(name.endswith(suffix) for name in names)]
@@ -60,6 +61,8 @@ def _check_wheel(wheel: Path) -> None:
         raise RuntimeError(f"wheel is incomplete: {missing}")
     if any(name.endswith(LEGACY_MANIFEST) for name in names):
         raise RuntimeError("wheel contains the retired legacy extension manifest")
+    if any(name.endswith(RETIRED_SCHEME) for name in names):
+        raise RuntimeError("wheel contains the retired PDMix-named scheme module")
 
     with zipfile.ZipFile(wheel) as archive:
         entry_name = next(
@@ -86,6 +89,8 @@ def _check_sdist(sdist: Path) -> None:
         raise RuntimeError(f"sdist is incomplete: {missing}")
     if any(name.endswith(LEGACY_MANIFEST) for name in names):
         raise RuntimeError("sdist contains the retired legacy extension manifest")
+    if any(name.endswith(RETIRED_SCHEME) for name in names):
+        raise RuntimeError("sdist contains the retired PDMix-named scheme module")
 
 
 def main() -> int:

@@ -245,7 +245,7 @@ def _validate_structure(contract: Any) -> dict[str, Any]:
     if zero["semantics"] != "additive_offset_before_scale":
         raise ContractError("unsupported zero-point semantics")
     allowed_types = {
-        "W8A8": {"JXD_W8A8_PDMIX"},
+        "W8A8": {"ASCEND_QUANT_W8A8"},
         "W4A4": {"W4A4_DYNAMIC"},
         "W4A8": {"W4A8_DYNAMIC"},
     }

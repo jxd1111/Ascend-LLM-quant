@@ -14,8 +14,8 @@ automatically hardware-verified.
 
 Current W8A8 NPU E2E evidence:
 
-- artifact: `/data/jxd/models/Qwen2.5-14B-Instruct-w8a8-pdmix-toolkit-v030`;
-- offline log: `/data/jxd/jxd-quant-results/w8a8-pdmix-toolkit-v030-quant.log`;
+- public artifact name: `Qwen2.5-14B-Instruct-w8a8`;
+- offline log: retained in the local W8A8 experiment archive;
 - runtime log: `/data/jxd/jxd-quant-results/w8a8-toolkit-v030-runtime-e2e.log`;
 - contract level: `npu_e2e`, verified profile: `W8A8`;
 - W4A4 and W4A8 remain unverified and must not be presented as supported hardware results.

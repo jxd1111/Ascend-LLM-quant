@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from jxd_ascend_quant.evidence import validate_evidence
+from ascend_quant_toolkit.evidence import validate_evidence
 
 
 def sample():

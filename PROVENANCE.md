@@ -6,7 +6,7 @@ HUST-owned integration code.
 | Area | Source/owner | Treatment in this repository |
 |---|---|---|
 | Offline calibration and model conversion | msModelSlim project and its upstream license | Invoked as an external dependency; implementation code is not vendored into the runtime wheel. |
-| W8A8 PDMix linear/MoE implementations and NPU operators | installed vLLM-Ascend distribution | Imported and subclassed by a namespaced diagnostic alias; algorithm/kernel code is not copied. |
+| W8A8 linear/MoE implementations and NPU operators | installed vLLM-Ascend distribution | Imported and subclassed by a namespaced diagnostic alias; algorithm/kernel code is not copied. |
 | Artifact contract, fail-closed validator, Bundle metadata and packaging | Ascend-LLM-quant contributors | Authored and maintained in this repository under its declared license. |
 | Extension Manager discovery/lifecycle | vLLM-HUST Extension Manager | Consumed as an external Host contract; Manager source is not vendored. |
 | Adaptive Quantized KV | separate project/team | Not included in this package, manifest, lifecycle, or compatibility claims. |
