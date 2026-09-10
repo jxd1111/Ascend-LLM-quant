@@ -23,7 +23,7 @@ class Recipe:
     quant_scheme: str
 
     def config_path(self) -> Path:
-        resource = files("jxd_ascend_quant").joinpath(self.config_resource)
+        resource = files("ascend_quant_toolkit").joinpath(self.config_resource)
         return Path(str(resource))
 
     def as_dict(self) -> dict[str, str]:

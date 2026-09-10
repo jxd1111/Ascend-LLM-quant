@@ -17,7 +17,7 @@ from typing import Any
 from . import __version__
 from .config import Recipe
 
-MANIFEST_FILENAME = "jxd_quant_manifest.json"
+MANIFEST_FILENAME = "ascend_quant_manifest.json"
 RUNTIME_CONTRACT_FILENAME = "ascend_quant_artifact.json"
 
 

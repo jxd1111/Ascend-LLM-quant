@@ -3,14 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from jxd_ascend_quant.artifact import (
+from ascend_quant_toolkit.artifact import (
     inspect_artifact,
     prepare_runtime_metadata,
     restore_modelslim_metadata,
     write_manifest,
     write_runtime_contract,
 )
-from jxd_ascend_quant.registry import get_recipe
+from ascend_quant_toolkit.registry import get_recipe
 
 
 def test_inspect_artifact(tmp_path: Path):
@@ -49,7 +49,10 @@ def test_write_manifest_records_recipe_and_source(tmp_path: Path):
     )
     manifest = json.loads(destination.read_text())
 
+    assert destination.name == "ascend_quant_manifest.json"
     assert manifest["schema_version"] == 2
+    assert manifest["producer"]["name"] == "ascend-quant-toolkit"
+    assert manifest["producer"]["version"] == "0.4.0"
     assert manifest["recipe"]["producer_quant_type"] == "W8A8_MIX"
     assert manifest["recipe"]["runtime_quant_type"] == "ASCEND_QUANT_W8A8"
     assert manifest["source_model"] == str(source_model.resolve())

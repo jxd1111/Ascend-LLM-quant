@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from jxd_ascend_quant.modelslim import QuantizeRequest, validate_request
-from jxd_ascend_quant.registry import get_recipe
+from ascend_quant_toolkit.modelslim import QuantizeRequest, validate_request
+from ascend_quant_toolkit.registry import get_recipe
 
 
 def make_request(model: Path, output: Path) -> QuantizeRequest:

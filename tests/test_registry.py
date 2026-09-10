@@ -1,4 +1,4 @@
-from jxd_ascend_quant.registry import get_recipe, list_recipes
+from ascend_quant_toolkit.registry import get_recipe, list_recipes
 
 
 def test_builtin_recipe_is_discoverable():

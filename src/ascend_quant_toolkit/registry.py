@@ -8,7 +8,7 @@ from typing import Callable
 from .config import Recipe
 from .recipes.qwen25_w8a8 import get_recipe as get_builtin_w8a8
 
-ENTRY_POINT_GROUP = "jxd_ascend_quant.recipes"
+ENTRY_POINT_GROUP = "ascend_quant_toolkit.recipes"
 
 
 def _builtins() -> dict[str, Callable[[], Recipe]]:

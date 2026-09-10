@@ -59,8 +59,7 @@ python -m pip install -e /root/jxd-ascend-quant \
   --no-deps --no-build-isolation
 ```
 
-The compatibility alias `jxd-quant` remains available, while the canonical
-command is `ascend-quant-toolkit`.
+The canonical command is `ascend-quant-toolkit`.
 
 ```bash
 ascend-quant-toolkit doctor --path /data/jxd
@@ -75,7 +74,7 @@ ascend-quant-toolkit plan \
 Replace `plan` with `quantize` to run the offline job. Successful quantization
 writes both provenance and the frozen runtime contract:
 
-- `jxd_quant_manifest.json`
+- `ascend_quant_manifest.json`
 - `ascend_quant_artifact.json`
 - `quant_model_description.json`
 - `quant_model_description.modelslim.json` (legacy rollback copy)

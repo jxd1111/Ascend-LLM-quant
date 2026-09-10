@@ -1,6 +1,6 @@
 """Validated Qwen2.5 W8A8 recipe."""
 
-from jxd_ascend_quant.config import Recipe
+from ascend_quant_toolkit.config import Recipe
 
 
 def get_recipe() -> Recipe:

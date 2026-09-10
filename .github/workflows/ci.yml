@@ -50,8 +50,13 @@ jobs:
 
           wheel = next(Path("dist").glob("ascend_quant_toolkit-*.whl"))
           with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+              assert any(name.startswith("ascend_quant_toolkit/") for name in names)
+              assert not any(name.startswith("jxd_ascend_quant/") for name in names)
               entry = next(name for name in archive.namelist() if name.endswith(".dist-info/entry_points.txt"))
               contents = archive.read(entry).decode()
+          assert "ascend-quant-toolkit = ascend_quant_toolkit.cli:main" in contents
+          assert "jxd" not in contents.lower()
           assert "[vllm.general_plugins]" not in contents
           assert "[vllm_hust.extension_bundles]" not in contents
           PY

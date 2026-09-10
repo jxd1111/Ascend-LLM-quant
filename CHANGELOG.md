@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Remove personal-name branding from the Toolkit's import package, CLI entry
+  point, recipe entry-point group, artifact manifest, and package authorship;
+  use the neutral `ascend_quant_toolkit` / `ascend-quant-toolkit` identities.
 - Present the validated capability uniformly as W8A8: rename the built-in
   recipe to `qwen25-w8a8` and the extension-owned runtime type to
   `ASCEND_QUANT_W8A8`; the selected ModelSlim/backend algorithm remains an

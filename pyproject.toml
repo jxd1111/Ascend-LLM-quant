@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [
-  { name = "JXD Quantization Team" },
+  { name = "Ascend Quantization Team" },
 ]
 dependencies = []
 classifiers = [
@@ -22,11 +22,10 @@ classifiers = [
 ]
 
 [project.scripts]
-jxd-quant = "jxd_ascend_quant.cli:main"
-ascend-quant-toolkit = "jxd_ascend_quant.cli:main"
+ascend-quant-toolkit = "ascend_quant_toolkit.cli:main"
 
-[project.entry-points."jxd_ascend_quant.recipes"]
-qwen25-w8a8 = "jxd_ascend_quant.recipes.qwen25_w8a8:get_recipe"
+[project.entry-points."ascend_quant_toolkit.recipes"]
+qwen25-w8a8 = "ascend_quant_toolkit.recipes.qwen25_w8a8:get_recipe"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -35,7 +34,7 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-jxd_ascend_quant = ["recipes/yaml/*.yaml"]
+ascend_quant_toolkit = ["recipes/yaml/*.yaml"]
 
 [tool.setuptools.data-files]
 "share/ascend-quant-toolkit/contracts" = [

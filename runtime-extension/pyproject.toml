@@ -9,7 +9,7 @@ description = "Fail-closed runtime support for versioned Ascend quantized model 
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
-authors = [{ name = "JXD Quantization Team" }]
+authors = [{ name = "Ascend Quantization Team" }]
 dependencies = ["packaging>=23"]
 classifiers = [
   "Development Status :: 3 - Alpha",

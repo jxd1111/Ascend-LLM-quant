@@ -142,7 +142,7 @@ def _add_quant_args(parser: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="jxd-quant")
+    parser = argparse.ArgumentParser(prog="ascend-quant-toolkit")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     list_parser = subparsers.add_parser("list-recipes", help="List discovered recipes")
