@@ -23,6 +23,24 @@ class ContractError(ValueError):
     """An artifact is incomplete, unknown, or incompatible."""
 
 
+class ArtifactContractValidator:
+    """Import-only carrier exposed to the Extension Manager.
+
+    Loading this object has no torch, vLLM, vLLM-Ascend, device, or model
+    side effects. Runtime activation remains blocked until the host publishes
+    the versioned loader and operator-selection protocols declared by the
+    Bundle manifest.
+    """
+
+    status = "import_only"
+
+    @staticmethod
+    def validate(
+        model_path: str | Path, *, check_software: bool = True
+    ) -> dict[str, Any]:
+        return validate_artifact(Path(model_path), check_software=check_software)
+
+
 @dataclass(frozen=True)
 class TensorInfo:
     dtype: str

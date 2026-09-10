@@ -1,6 +1,6 @@
 # Extension Manager hand-off contract
 
-Status: **extension-side integration ready; Manager API confirmation pending**.
+Status: **Manager-discoverable `import_only` baseline; runtime activation NO-GO**.
 
 This document is the hand-off boundary between the quantization team and the
 vLLM-HUST Extension Manager team. It does not claim that the experimental
@@ -11,11 +11,17 @@ manifest schema has already been accepted by the Manager implementation.
 | Field | Value |
 |---|---|
 | Distribution | `vllm-ascend-quant-ext` |
-| Extension ID | `vllm-ascend-quant` |
-| Proposed kind | `model_weight_quantization_runtime` |
-| Host | `vllm-ascend` |
-| Lifecycle owner | `vllm-ascend` |
-| Runtime scope | trusted Python in-process, model worker |
+| Bundle/Extension ID | `org.vllm-hust.ascend-quant-runtime` |
+| Component ID | `ascend-quant-artifact-validator` |
+| Full component ID | `org.vllm-hust.ascend-quant-runtime/ascend-quant-artifact-validator` |
+| Kind | `in_process_plugin` |
+| Host | provider `vllm`, name `vllm-ascend` |
+| Lifecycle owner | `vllm` |
+| Runtime scope | trusted Python in-process, `vllm-ascend-worker` |
+| Component contract | `vllm.ascend.quantized-artifact-loader.v1` |
+| Execution planes | `worker`, `device` |
+| Implementation status | `import_only` |
+| Bundle discovery | `vllm_hust.extension_bundles/org.vllm-hust.ascend-quant-runtime` |
 | vLLM entry point | `vllm.general_plugins/vllm_ascend_quant` |
 | Proposed adapter symbol | `vllm_ascend_quant_ext.manager:provider` |
 | Adapter API | `1.0` |
@@ -25,16 +31,24 @@ conversion, dataset, PPL, benchmark, or KV-cache lifecycle.
 
 ## Discovery
 
-The wheel contains the manifest both as a package resource and as an installed
-data file:
+The wheel registers the manifest package through the Extension Bundle entry
+point:
 
 ```text
-vllm_ascend_quant_ext/extension-manifest.json
-share/vllm-hust/extensions/vllm-ascend-quant/extension-manifest.json
+vllm_hust.extension_bundles:
+  org.vllm-hust.ascend-quant-runtime = vllm_ascend_quant_ext.manifests
+
+vllm_ascend_quant_ext/manifests/__init__.py
+vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json
 ```
 
-The Manager must discover and validate static metadata without importing
+The Manager must discover and validate this static metadata without importing
 `vllm_ascend_quant_ext.plugin`, torch, torch-npu, vLLM, or vLLM-Ascend.
+
+The manifest declares an import-only artifact validator. Its Python carrier is
+`vllm_ascend_quant_ext.contract:ArtifactContractValidator`. Loading it performs
+no torch, vLLM, vLLM-Ascend, device, or model side effects. The older runtime
+carrier remains unadvertised and diagnostic-only.
 
 ## Configuration
 
@@ -67,32 +81,25 @@ provider.render(configuration)
 
 These calls are read-only. An enabled `check` validates the complete artifact,
 software compatibility, safetensors metadata, operators, model identity and
-shape contract before any implementation import.
+shape contract before any implementation import, then reports
+`enable_allowed=false`. Enabled `plan` and `render` raise an `import_only`
+error. This refusal is intentional.
 
-For an enabled extension, `render` returns:
+The `JXD_W8A8_PDMIX` carrier is a namespaced alias of vLLM-Ascend's native
+`W8A8_MIX` linear and MoE schemes. The extension does not own or fork weight
+loading, tensor layout conversion, execution-role selection, or NPU operators.
 
-```json
-{
-  "environment_set": {
-    "VLLM_ASCEND_QUANT_EXT_ENABLE": "1",
-    "VLLM_ASCEND_QUANT_EXT_ARTIFACT": "/absolute/model/path"
-  },
-  "environment_unset": [],
-  "vllm_plugins_add": ["vllm_ascend_quant"],
-  "vllm_plugins_remove": []
-}
-```
-
-For a disabled extension it returns the two extension variables in
+For a disabled extension, `render` returns the two diagnostic variables in
 `environment_unset` and only `vllm_ascend_quant` in `vllm_plugins_remove`.
-The Manager must merge plugin selections and preserve the Ascend platform
-plugin; it must never replace `VLLM_PLUGINS` with only the quant plugin.
+No enabled Manager render exists in the import-only baseline. The extension's
+CLI render output is a separate direct-diagnostic aid and must never be
+materialized by the Manager.
 
 ## Required Manager behavior
 
 The Manager team owns:
 
-1. acceptance of the final manifest schema and typed kind;
+1. validation of Manifest `0.2-experimental` and the `in_process_plugin` kind;
 2. duplicate-ID, permissions, host/API and version-range admission;
 3. deterministic discover/check/plan/render lifecycle and state storage;
 4. safe merging of environment and plugin selections from multiple extensions;
@@ -103,11 +110,13 @@ The Manager must not modify the model artifact or invoke ModelSlim.
 
 ## Items requiring an explicit framework-team decision
 
-- replace or accept `schema_version=0.2-experimental`;
-- accept the proposed kind and host-provider names;
-- confirm the installed manifest discovery path;
+- graduate or replace `schema_version=0.2-experimental`;
+- confirm the installed manifest discovery path and identifiers;
 - define the official typed provider/materializer interface;
-- decide whether the adapter symbol becomes a registered Manager entry point;
+- publish `vllm.ascend.quantized-artifact-loader.v1`;
+- publish `vllm.ascend.quantized-operator-selection.v1`;
+- define how the model path and immutable artifact identity reach the model
+  worker component;
 - publish the final CLI syntax for configure/check/plan/render/run.
 
 No extension release may silently guess these decisions. A schema change must
@@ -117,11 +126,15 @@ be followed by a new extension version and compatibility tests.
 
 1. Install the runtime wheel into the same environment as vLLM-Ascend.
 2. Discover and validate the static manifest without implementation import.
-3. Configure the verified W8A8 artifact and run Manager `check`.
-4. Inspect `plan` and `render`; verify that no model file changed.
-5. Start vLLM-Ascend and complete a deterministic inference request.
+3. Configure the verified W8A8 artifact and run Manager `check`; confirm it is
+   valid but not enableable.
+4. Confirm enabled Manager `plan` and `render` fail closed as `import_only`.
+5. After both Host protocols are approved in a future version, start
+   vLLM-Ascend and complete a deterministic inference request.
 6. Disable the extension and verify that its environment/plugin selection is
    absent on the next start.
 7. Uninstall the wheel and verify that its entry point and Manager descriptor
    disappear while model hashes remain unchanged.
-8. Start the original vLLM-Ascend/ModelSlim path to demonstrate rollback.
+8. Run Toolkit `restore-modelslim`, then start the original
+   vLLM-Ascend/ModelSlim `W8A8_MIX` path to demonstrate rollback. Uninstalling
+   the wheel alone must not be treated as metadata rollback.

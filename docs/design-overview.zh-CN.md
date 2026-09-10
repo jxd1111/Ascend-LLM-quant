@@ -44,7 +44,7 @@ flowchart LR
 | 组件 | 负责 | 不负责 |
 |---|---|---|
 | Toolkit | 校准、SmoothQuant/GPTQ、转换、产物和评测 | vLLM worker 生命周期 |
-| Runtime Extension | 产物 admission、Scheme 映射、权重加载接口、算子选择 | 校准、数据集和模型转换 |
+| Runtime Extension | 产物 admission、量化类型映射、命名空间 Scheme 适配 | 校准、数据集、模型转换和 NPU 算子实现 |
 | Extension Manager | discover/check/plan/render/start/disable/uninstall | 修改量化模型 |
 | vLLM-Ascend | Platform、TP/EP、公共 Scheme SPI、CANN/torch-npu 算子 | 离线校准 |
 
@@ -113,7 +113,10 @@ install → discover → check → plan → render → start
 
 安装 wheel 默认不生效。Manager 和 Runtime Extension 始终只读模型目录；worker
 启动时再次校验 artifact identity，避免 plan/start 之间产物变化。禁用或卸载
-只移除插件选择和环境状态，模型文件保持不变。
+只移除插件选择和环境状态，模型文件保持不变。若 active metadata 使用
+`JXD_W8A8_PDMIX`，卸载前后都必须显式运行 Toolkit 的 `restore-modelslim` 才能
+恢复原生 `W8A8_MIX` 路径；恢复命令会校验 active metadata，发现后续修改则拒绝
+覆盖。
 
 在 Manager 正式接入前，扩展自身的 `check/plan/render` 只属于诊断模式。
 详细交接方式见 [Extension Manager 对接契约](extension-manager-handoff.md)。
@@ -131,11 +134,25 @@ install → discover → check → plan → render → start
 
 尚未完成：
 
-- Extension Manager 正式支持 `model_weight_quantization_runtime`；
+- Extension Manager 与 vLLM-Ascend 正式支持量化产物加载和算子选择协议；
 - vLLM-Ascend 公共、稳定的外部 Scheme SPI；
 - standalone/producer/consumer 的正式接口和完整测试；
 - 匹配协议下的 BF16/W8A8 精度、性能和 HBM 对照；
 - W4A4/W4A8 的真实硬件验证。
+
+当前 `0.2-experimental` Bundle 原型采用以下暂定标识：
+
+```text
+Bundle ID:          org.vllm-hust.ascend-quant-runtime
+Component ID:       ascend-quant-artifact-validator
+完整 Component ID: org.vllm-hust.ascend-quant-runtime/ascend-quant-artifact-validator
+Contract:           vllm.ascend.quantized-artifact-loader.v1
+Execution planes:   worker, device
+Status:             import_only
+```
+
+这些标识用于先完成与 BidKV 一致的打包和发现结构，正式发布前仍需与
+Extension Manager 团队同步。
 
 因此当前状态应表述为：
 
@@ -147,7 +164,7 @@ Extension Manager and public Host API confirmation pending.
 ## 8. 需要框架团队确认
 
 1. 是否接受 Toolkit 与 Runtime Extension 拆分；
-2. 是否接受 `model_weight_quantization_runtime` kind；
+2. 是否发布量化产物加载与算子选择 Host 协议；
 3. Extension Manager 的 manifest 和 typed Provider/Materializer API；
 4. vLLM-Ascend 的公共 namespaced Scheme 注册接口；
 5. parameter specification 和 post-load layout API；

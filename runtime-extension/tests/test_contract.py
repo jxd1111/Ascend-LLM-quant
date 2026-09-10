@@ -257,11 +257,22 @@ def test_manager_adapter_disabled_render_removes_only_extension_state():
     assert "ascend" not in rendered["vllm_plugins_remove"]
 
 
-def test_manager_adapter_enabled_render_is_read_only(tmp_path: Path, monkeypatch):
+def test_manager_adapter_enabled_check_is_import_only(tmp_path: Path, monkeypatch):
     make_artifact(tmp_path)
     monkeypatch.setattr("vllm_ascend_quant_ext.manager.validate_artifact", lambda path: {"valid": True})
     before = {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()}
-    rendered = provider.render({"enabled": True, "model": str(tmp_path)})
-    assert rendered["environment_set"]["VLLM_ASCEND_QUANT_EXT_ENABLE"] == "1"
-    assert rendered["vllm_plugins_add"] == ["vllm_ascend_quant"]
+    checked = provider.check({"enabled": True, "model": str(tmp_path)})
+    assert checked["admitted"] is False
+    assert checked["enable_allowed"] is False
+    assert "import_only" in checked["reason"]
     assert {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()} == before
+
+
+def test_manager_adapter_refuses_enabled_plan_and_render(tmp_path: Path, monkeypatch):
+    make_artifact(tmp_path)
+    monkeypatch.setattr("vllm_ascend_quant_ext.manager.validate_artifact", lambda path: {"valid": True})
+    configuration = {"enabled": True, "model": str(tmp_path)}
+    with pytest.raises(RuntimeError, match="import_only"):
+        provider.plan(configuration)
+    with pytest.raises(RuntimeError, match="import_only"):
+        provider.render(configuration)

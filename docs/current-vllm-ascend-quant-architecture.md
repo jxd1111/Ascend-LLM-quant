@@ -187,9 +187,8 @@ items for later phases; only W8A8 is hardware-verified by this project today.
 ## Logic suitable for the external plugin
 
 - versioned quantized artifact contract and admission;
-- namespaced scheme definitions and algorithm policy;
+- namespaced aliases that delegate to host-owned scheme implementations;
 - artifact quant-type to scheme mapping;
-- parameter specification and scheme-local post-load transforms;
 - capability negotiation and deterministic runtime plan;
 - Manager-facing metadata and enable/disable lifecycle.
 

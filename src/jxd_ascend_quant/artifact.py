@@ -206,10 +206,15 @@ def restore_modelslim_metadata(model_path: Path, recipe: Recipe) -> dict[str, An
 
     description_path = model_path / "quant_model_description.json"
     backup_path = model_path / "quant_model_description.modelslim.json"
+    if not description_path.is_file():
+        raise ValueError(f"Missing quantization description: {description_path}")
     if not backup_path.is_file():
         raise ValueError(f"ModelSlim metadata backup does not exist: {backup_path}")
 
-    backup = json.loads(backup_path.read_text(encoding="utf-8"))
+    active = json.loads(description_path.read_text(encoding="utf-8"))
+    backup_text = backup_path.read_text(encoding="utf-8")
+    backup = json.loads(backup_text)
+    active_counts = _quant_type_counts(active)
     backup_counts = _quant_type_counts(backup)
     if not backup_counts[recipe.producer_quant_type]:
         raise ValueError(
@@ -220,6 +225,41 @@ def restore_modelslim_metadata(model_path: Path, recipe: Recipe) -> dict[str, An
             f"Backup unexpectedly contains {recipe.runtime_quant_type}: {backup_path}"
         )
 
+    if (
+        active_counts[recipe.producer_quant_type]
+        and not active_counts[recipe.runtime_quant_type]
+    ):
+        return {
+            "changed": False,
+            "restored": False,
+            "active_quant_type": recipe.producer_quant_type,
+            "source": str(backup_path),
+        }
+    if (
+        active_counts[recipe.producer_quant_type]
+        and active_counts[recipe.runtime_quant_type]
+    ):
+        raise ValueError(
+            "Active metadata contains a partial quantization-type migration"
+        )
+    if not active_counts[recipe.runtime_quant_type]:
+        raise ValueError(
+            f"Active metadata does not contain {recipe.runtime_quant_type}; "
+            "refusing to overwrite it"
+        )
+
+    expected_active, replacements = _replace_exact_strings(
+        backup, recipe.producer_quant_type, recipe.runtime_quant_type
+    )
+    if (
+        replacements != backup_counts[recipe.producer_quant_type]
+        or active != expected_active
+    ):
+        raise ValueError(
+            "Active metadata differs from the preserved ModelSlim migration; "
+            "refusing to overwrite later changes"
+        )
+
     file_descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{description_path.name}.",
         suffix=".restore.tmp",
@@ -227,7 +267,7 @@ def restore_modelslim_metadata(model_path: Path, recipe: Recipe) -> dict[str, An
     )
     try:
         with os.fdopen(file_descriptor, "w", encoding="utf-8") as stream:
-            stream.write(json.dumps(backup, ensure_ascii=False, indent=2) + "\n")
+            stream.write(backup_text)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary_name, description_path)
@@ -239,6 +279,7 @@ def restore_modelslim_metadata(model_path: Path, recipe: Recipe) -> dict[str, An
         raise
 
     return {
+        "changed": True,
         "restored": True,
         "active_quant_type": recipe.producer_quant_type,
         "source": str(backup_path),

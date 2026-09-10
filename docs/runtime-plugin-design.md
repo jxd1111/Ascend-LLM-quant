@@ -24,7 +24,7 @@ Status: design baseline for review before the next implementation phase.
 
 ```text
 Extension Manager
-  -> static manifest discovery
+  -> vllm_hust.extension_bundles static manifest discovery
   -> QuantRuntimeProvider.check/plan/render
        -> ArtifactReader + ContractValidator
        -> CapabilityMatcher
@@ -129,18 +129,35 @@ modifies the model.
 
 ### Scheme registration
 
-Only namespaced types are registered:
+The current extension registers only the namespaced PDMix aliases:
 
 ```text
-JXD_W8A8_STATIC/linear
-JXD_W8A8_DYNAMIC/linear
-JXD_W8A8_DYNAMIC/moe
 JXD_W8A8_PDMIX/linear
 JXD_W8A8_PDMIX/moe
 ```
 
-The next implementation phase should not register or overwrite host-owned keys
-such as `W8A8`, `W8A8_DYNAMIC` or `W8A8_MIX`.
+They subclass the native vLLM-Ascend `W8A8_MIX` implementations instead of
+copying or forking their algorithm code. The extension does not register or
+overwrite host-owned keys such as `W8A8`, `W8A8_DYNAMIC` or `W8A8_MIX`.
+
+### Extension Bundle identity
+
+The `0.2-experimental` packaging prototype uses the following provisional
+identifiers pending framework-team confirmation:
+
+```text
+Bundle ID:          org.vllm-hust.ascend-quant-runtime
+Component ID:       ascend-quant-artifact-validator
+Full component ID:  org.vllm-hust.ascend-quant-runtime/ascend-quant-artifact-validator
+Contract:           vllm.ascend.quantized-artifact-loader.v1
+Execution planes:   worker, device
+Status:             import_only
+```
+
+The Bundle is discovered through `vllm_hust.extension_bundles`. The existing
+`vllm.general_plugins/vllm_ascend_quant` entry point is retained only for direct
+diagnostics; it is not selected by Bundle activation and is not the Bundle
+discovery mechanism.
 
 ### Tensor output
 
@@ -160,8 +177,9 @@ layout required by the admitted operator.
 A standalone service therefore uses the dynamic runtime path, but its artifact
 and quantization profile remain PDMix.
 
-Operator rounding/saturation and physical FRACTAL_NZ layout remain host
-contracts. The plugin validates and selects them; it does not emulate them.
+The PDMix algorithm, operator rounding/saturation and physical FRACTAL_NZ
+layout remain host-owned contracts. The plugin validates the artifact and
+provides a namespaced alias; it does not fork or emulate the host algorithm.
 
 ## Startup modes
 
@@ -170,15 +188,14 @@ contracts. The plugin validates and selects them; it does not emulate them.
 Installing the wheel registers metadata but changes no serving behavior.
 No artifact is inspected and no W8A8 implementation module is imported.
 
-### Manager-managed production mode
+### Manager-managed mode (currently import-only)
 
 ```text
-install -> discover -> validate -> configure -> check -> plan -> render
--> launch vLLM-Ascend worker -> worker re-admission -> scheme registration
+install -> discover -> validate -> configure -> check
+-> enabled plan/render refused until Host protocols are approved
 ```
 
-This is the only production target. The Manager must merge plugin selections
-and preserve the `ascend` platform plugin.
+This is the intended production target, not a current activation claim.
 
 ### Direct diagnostic mode
 
@@ -194,14 +211,16 @@ diagnostic only.
 - no silent BF16 fallback for a declared quantized layer;
 - disable removes only this extension's variables and plugin selection;
 - uninstall removes registration without touching artifacts;
-- original ModelSlim/vLLM-Ascend path remains available.
+- the original ModelSlim/vLLM-Ascend path is restored only by the Toolkit's
+  explicit, fail-closed `restore-modelslim` operation; uninstall is not a
+  metadata migration.
 
 ## Host API required before full extraction
 
 The framework team must freeze:
 
 1. manifest schema and discovery path;
-2. typed `model_weight_quantization_runtime` materializer;
+2. typed quantized-artifact loader and operator-selection protocols;
 3. stable scheme registry and duplicate-registration behavior;
 4. stable parameter-spec and post-load interfaces;
 5. runtime capability descriptor, including execution role;
