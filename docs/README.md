@@ -17,6 +17,7 @@ Extension Manager 对接边界和验证证据。离线 Toolkit 与 Runtime Exten
 | 7 | [W8A8 证据](w8a8-evidence.md) | 查看当前可追溯的 NPU E2E、PPL 和 ShareGPT 记录 |
 | 8 | [后续路线图](runtime-plugin-roadmap.md) | 查看依赖项、优先级和开放问题 |
 | 9 | [打包发布指南](runtime-extension-packaging-and-release.zh-CN.md) | 构建、隔离安装、发现、卸载与发布流程 |
+| 10 | [W8A8 Runtime 0.4.0 验证记录](validation-w8a8-v0.4.0-20260910.md) | 查看当前版本的 NPU 正向、禁用对照和原生恢复结果 |
 
 ## 架构决策
 

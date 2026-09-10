@@ -15,7 +15,9 @@
 - [x] Disabled render is deterministic and removes only extension-owned state.
 - [x] Namespaced W8A8 aliases delegate to host-owned implementations.
 - [x] Native `W8A8_MIX` metadata restoration is explicit and documented.
-- [x] W8A8 Toolkit to NPU runtime E2E has passed.
+- [x] W8A8 Toolkit to Runtime Extension 0.4.0 NPU E2E has passed.
+- [x] Direct plugin-disabled `ASCEND_QUANT_W8A8` startup fails closed.
+- [x] Direct plugin-disabled native `W8A8_MIX` startup and inference pass.
 - [x] Wheel/sdist content and isolated install/discovery/uninstall verification is scripted.
 - [ ] Repository URL, maintainers and release owner confirmed.
 - [ ] Git history, signed tag and published wheel created.

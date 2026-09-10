@@ -129,7 +129,7 @@ org.vllm-hust.ascend-quant-runtime -> vllm_ascend_quant_ext.manifests
 
 ```bash
 export VLLM_ASCEND_QUANT_EXT_ENABLE=1
-export VLLM_ASCEND_QUANT_ARTIFACT=/path/to/quantized-model
+export VLLM_ASCEND_QUANT_EXT_ARTIFACT=/path/to/quantized-model
 ```
 
 ## 7. Manager 联调门槛

@@ -46,6 +46,7 @@ vllm_ascend_quant_ext = ["manifests/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.ruff]
 target-version = "py310"

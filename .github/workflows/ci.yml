@@ -31,9 +31,9 @@ jobs:
         run: python -m pytest -q runtime-extension/tests
       - name: Lint Python sources
         run: python -m ruff check .
-      - name: Build Toolkit wheel and Runtime Extension wheel plus sdist
+      - name: Build Toolkit and Runtime Extension wheels plus sdists
         run: |
-          python -m pip wheel . --no-deps --no-build-isolation -w dist
+          python -m build --wheel --sdist --no-isolation --outdir dist .
           python -m build --wheel --sdist --no-isolation \
             --outdir runtime-extension/dist runtime-extension
           python -m twine check dist/* runtime-extension/dist/*
@@ -42,9 +42,10 @@ jobs:
           python runtime-extension/tools/verify_release.py \
             --wheel runtime-extension/dist/vllm_ascend_quant_ext-*.whl \
             --sdist runtime-extension/dist/vllm_ascend_quant_ext-*.tar.gz
-      - name: Verify Toolkit has no runtime or Bundle entry point
+      - name: Verify Toolkit artifacts contain no runtime extension
         run: |
           python - <<'PY'
+          import tarfile
           import zipfile
           from pathlib import Path
 
@@ -59,4 +60,9 @@ jobs:
           assert "jxd" not in contents.lower()
           assert "[vllm.general_plugins]" not in contents
           assert "[vllm_hust.extension_bundles]" not in contents
+
+          sdist = next(Path("dist").glob("ascend_quant_toolkit-*.tar.gz"))
+          with tarfile.open(sdist, "r:gz") as archive:
+              names = archive.getnames()
+          assert not any("/runtime-extension/" in name for name in names)
           PY
