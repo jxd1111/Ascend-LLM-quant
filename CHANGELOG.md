@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Bump Toolkit and Runtime Extension to `0.4.1` and artifact contract to
+  `1.1.0`.
+- Bind config, quantization description, safetensors shards/indexes, and
+  claimed evidence records by exact size and SHA-256; derive `artifact_id`
+  from the canonical model-file inventory.
+- Reject out-of-bounds, overlapping, non-contiguous, or dtype/shape-inconsistent
+  safetensors payloads and inconsistent shard indexes.
+- Freeze scheme-specific W8A8/W4A4/W4A8 semantics, the required operator set,
+  and the runtime scheme provider.
+- Add a closed evaluation-evidence schema and stricter evidence/profile,
+  hardware, request-count, metric, HBM, raw-log, and artifact-identity checks.
+- Restrict the experimental Bundle host version and reduce the import-only
+  validator permission set to filesystem read.
+
 - Remove personal-name branding from the Toolkit's import package, CLI entry
   point, recipe entry-point group, artifact manifest, and package authorship;
   use the neutral `ascend_quant_toolkit` / `ascend-quant-toolkit` identities.

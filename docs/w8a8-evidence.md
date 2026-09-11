@@ -18,8 +18,9 @@ BF16/W8A8 benchmark.
 - Device: NPU 7, tensor parallel 1
 - Result: model load, health request, chat completion and shutdown passed
 - Quantization log: retained in the local W8A8 experiment archive
-- Runtime log:
-  `/data/jxd/jxd-quant-results/w8a8-toolkit-v030-runtime-e2e.log`
+- Runtime log: retained in the private experiment archive; it must be attached
+  to a GitHub release or committed as a redacted evidence artifact before this
+  result can be independently reproduced.
 
 This establishes `npu_e2e`, not `matched_benchmark`.
 
@@ -40,15 +41,14 @@ revision is still required before publishing a PPL delta.
 
 ## Existing W8A8 ShareGPT-V3 runs
 
-Dataset:
-`/root/workspace1/vllm-hust-benchmark/ShareGPT_V3_unfiltered_cleaned_split.json`
+Dataset file: `ShareGPT_V3_unfiltered_cleaned_split.json`
 
 Dataset SHA-256:
 `35f0e213ce091ed9b9af2a1f0755e9d39f9ccec34ab281cd4ca60d70f6479ba4`
 
 All reported values are medians of three recorded runs with 200 successful and
-zero failed requests. The tokenizer is
-`/root/models/Qwen2.5-14B-Instruct`.
+zero failed requests. The tokenizer is the unquantized
+`Qwen/Qwen2.5-14B-Instruct` tokenizer corresponding to the evaluated model.
 
 | RPS / concurrency | Req/s | Output tok/s | Total tok/s | Mean TTFT ms | P99 TTFT ms | Mean TPOT ms | P99 TPOT ms |
 |---|---:|---:|---:|---:|---:|---:|---:|

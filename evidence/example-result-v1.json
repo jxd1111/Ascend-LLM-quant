@@ -1,18 +1,18 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "run_id": "replace-me",
   "profile": "W8A8",
   "artifact": {
     "model": "replace-me",
     "artifact_id": "replace-me",
-    "contract_sha256": "replace-with-64-hex-characters"
+    "artifact_files_sha256": "replace-with-64-hex-characters"
   },
   "software": {
     "cann": "8.5.0",
     "torch_npu": "2.9.0",
     "vllm": "replace-me",
     "vllm_ascend": "replace-me",
-    "extension": "0.3.0"
+    "extension": "0.4.1"
   },
   "hardware": {
     "npu_model": "910B3",

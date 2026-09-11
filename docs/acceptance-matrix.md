@@ -16,7 +16,7 @@ Current W8A8 NPU E2E evidence:
 
 - public artifact name: `Qwen2.5-14B-Instruct-w8a8`;
 - offline log: retained in the local W8A8 experiment archive;
-- runtime log: `/data/jxd/jxd-quant-results/w8a8-toolkit-v030-runtime-e2e.log`;
+- runtime log: retained in the private experiment archive and not yet published;
 - contract level: `npu_e2e`, verified profile: `W8A8`;
 - W4A4 and W4A8 remain unverified and must not be presented as supported hardware results.
 
@@ -35,6 +35,9 @@ Required result fields:
 - request/output/total token throughput, TTFT, TPOT and ITL percentiles;
 - idle, loaded and peak HBM;
 - raw log paths and aggregation script revision.
+
+Contract 1.1 additionally requires immutable size/SHA-256 records for all
+model files and every evidence result referenced by the artifact contract.
 
 Promotion gates:
 
