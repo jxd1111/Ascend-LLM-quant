@@ -22,7 +22,7 @@ def test_manager_manifest_has_explicit_boundary():
     assert manifest["host"] == {
         "provider": "vllm",
         "name": "vllm-ascend",
-        "version_range": ">=0",
+        "version_range": ">=0.1.dev2790,<0.2",
     }
     assert manifest["lifecycle_owner"] == "vllm"
     assert manifest["requires_services"] == []
@@ -41,7 +41,6 @@ def test_manager_manifest_has_explicit_boundary():
     assert manifest["components"][0]["execution_planes"] == ["worker", "device"]
     assert manifest["components"][0]["permissions"] == [
         "filesystem_read",
-        "device_access",
     ]
     assert manifest["activation"] == {
         "entry_points": [],

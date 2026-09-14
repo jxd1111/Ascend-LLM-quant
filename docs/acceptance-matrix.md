@@ -8,15 +8,17 @@ automatically hardware-verified.
 | Profile | Correctness | Accuracy/PPL | Throughput/TTFT | HBM | Status |
 |---|---|---|---|---|---|
 | BF16 | required | required baseline | required baseline | required baseline | pending repository evidence |
-| W8A8 | passed on Qwen2.5-14B | single-profile PPL retained; matched BF16 delta pending | single-profile ShareGPT retained; matched BF16 comparison pending | pending matched HBM record | fresh Toolkit → Runtime Extension NPU E2E passed |
+| W8A8 | passed on Qwen2.5-14B | single-profile PPL retained; matched BF16 delta pending | single-profile ShareGPT retained; matched BF16 comparison pending | loaded HBM sampled; matched peak record pending | Runtime Extension 0.4.1 / contract 1.1 NPU E2E passed |
 | W4A4 | required | required | required | required | pending |
 | W4A8 | required | required | required | required | pending |
 
 Current W8A8 NPU E2E evidence:
 
 - public artifact name: `Qwen2.5-14B-Instruct-w8a8`;
+- 0.4.1 / contract 1.1 validation record:
+  [`validation-w8a8-v0.4.1-20260914.md`](validation-w8a8-v0.4.1-20260914.md);
 - offline log: retained in the local W8A8 experiment archive;
-- runtime log: `/data/jxd/jxd-quant-results/w8a8-toolkit-v030-runtime-e2e.log`;
+- runtime log: retained in the private experiment archive and not yet published;
 - contract level: `npu_e2e`, verified profile: `W8A8`;
 - W4A4 and W4A8 remain unverified and must not be presented as supported hardware results.
 
@@ -35,6 +37,9 @@ Required result fields:
 - request/output/total token throughput, TTFT, TPOT and ITL percentiles;
 - idle, loaded and peak HBM;
 - raw log paths and aggregation script revision.
+
+Contract 1.1 additionally requires immutable size/SHA-256 records for all
+model files and every evidence result referenced by the artifact contract.
 
 Promotion gates:
 

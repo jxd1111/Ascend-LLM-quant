@@ -1,12 +1,12 @@
 {
   "schema_version": "0.2-experimental",
   "extension_id": "org.vllm-hust.ascend-quant-runtime",
-  "extension_version": "0.4.0",
+  "extension_version": "0.4.1",
   "kind": "in_process_plugin",
   "host": {
     "provider": "vllm",
     "name": "vllm-ascend",
-    "version_range": ">=0"
+    "version_range": ">=0.1.dev2790,<0.2"
   },
   "runtime": {
     "type": "python",
@@ -46,8 +46,7 @@
       "isolation": "trusted_in_process",
       "implementation_ref": "vllm_ascend_quant_ext.contract:ArtifactContractValidator",
       "permissions": [
-        "filesystem_read",
-        "device_access"
+        "filesystem_read"
       ]
     }
   ],

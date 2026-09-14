@@ -20,7 +20,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install test and build dependencies
-        run: python -m pip install --upgrade pip setuptools wheel build pytest packaging ruff twine
+        run: python -m pip install --upgrade pip setuptools wheel build pytest packaging ruff twine jsonschema
       - name: Install both local distributions
         run: |
           python -m pip install -e . --no-deps --no-build-isolation
@@ -65,4 +65,7 @@ jobs:
           with tarfile.open(sdist, "r:gz") as archive:
               names = archive.getnames()
           assert not any("/runtime-extension/" in name for name in names)
+          assert any(name.endswith("/docs/artifact-contract-v1.1-migration.md") for name in names)
+          assert any(name.endswith("/contracts/ascend-quant-artifact-v1.schema.json") for name in names)
+          assert any(name.endswith("/contracts/ascend-quant-evidence-v1.schema.json") for name in names)
           PY

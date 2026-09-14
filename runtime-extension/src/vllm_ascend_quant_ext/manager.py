@@ -67,7 +67,7 @@ def validate_manifest(value: Any) -> dict[str, Any]:
     if value["host"] != {
         "provider": "vllm",
         "name": "vllm-ascend",
-        "version_range": ">=0",
+        "version_range": ">=0.1.dev2790,<0.2",
     }:
         raise ValueError("unexpected extension host")
     if value["lifecycle_owner"] != "vllm":
@@ -118,7 +118,7 @@ def validate_manifest(value: Any) -> dict[str, Any]:
         "vllm_ascend_quant_ext.contract:ArtifactContractValidator"
     ):
         raise ValueError("unexpected component implementation reference")
-    if component.get("permissions") != ["filesystem_read", "device_access"]:
+    if component.get("permissions") != ["filesystem_read"]:
         raise ValueError("unexpected component permissions")
     activation = value["activation"]
     if activation != {"entry_points": [], "environment": {}, "additional_config": {}}:

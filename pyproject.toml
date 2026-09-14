@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ascend-quant-toolkit"
-version = "0.4.0"
+version = "0.4.1"
 description = "Offline calibration, conversion, artifact export, and evaluation tools for Ascend quantization"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,6 +18,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
 ]
 
 [project.scripts]
@@ -38,6 +39,7 @@ ascend_quant_toolkit = ["recipes/yaml/*.yaml"]
 [tool.setuptools.data-files]
 "share/ascend-quant-toolkit/contracts" = [
   "contracts/ascend-quant-artifact-v1.schema.json",
+  "contracts/ascend-quant-evidence-v1.schema.json",
   "contracts/README.md",
 ]
 

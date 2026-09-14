@@ -16,6 +16,7 @@ from typing import Any
 
 from . import __version__
 from .config import Recipe
+from .evidence import load_evidence
 
 MANIFEST_FILENAME = "ascend_quant_manifest.json"
 RUNTIME_CONTRACT_FILENAME = "ascend_quant_artifact.json"
@@ -36,6 +37,32 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _file_record(path: Path) -> dict[str, Any]:
+    """Return immutable identity metadata for one artifact file."""
+
+    return {
+        "name": path.name,
+        "size": path.stat().st_size,
+        "sha256": sha256_file(path),
+    }
+
+
+def _relative_file_record(root: Path, relative: str) -> dict[str, Any]:
+    path = root / relative
+    return {
+        "name": relative,
+        "size": path.stat().st_size,
+        "sha256": sha256_file(path),
+    }
+
+
+def _artifact_content_digest(files: dict[str, Any]) -> str:
+    """Hash the canonical file inventory used to derive ``artifact_id``."""
+
+    canonical = json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def _quant_type_counts(description: Any) -> Counter[str]:
     counts: Counter[str] = Counter()
 
@@ -46,9 +73,7 @@ def _quant_type_counts(description: Any) -> Counter[str]:
         elif isinstance(value, list):
             for nested in value:
                 visit(nested)
-        elif isinstance(value, str) and value.startswith(
-            ("W", "INT", "FAK", "ASCEND_QUANT_")
-        ):
+        elif isinstance(value, str) and value.startswith(("W", "INT", "FAK", "ASCEND_QUANT_")):
             counts[value] += 1
 
     visit(description)
@@ -96,6 +121,7 @@ def inspect_artifact(model_path: Path) -> dict[str, Any]:
         "model_type": config.get("model_type"),
         "architectures": config.get("architectures", []),
         "weight_files": [path.name for path in weight_files],
+        "index_files": [path.name for path in index_files],
         "weight_bytes": sum(path.stat().st_size for path in weight_files),
         "quant_type_counts": dict(sorted(quant_counts.items())),
         "errors": errors,
@@ -108,9 +134,7 @@ def _replace_exact_strings(value: Any, source: str, target: str) -> tuple[Any, i
         replaced: dict[Any, Any] = {}
         changes = 0
         for key, nested in value.items():
-            replaced_value, nested_changes = _replace_exact_strings(
-                nested, source, target
-            )
+            replaced_value, nested_changes = _replace_exact_strings(nested, source, target)
             replaced[key] = replaced_value
             changes += nested_changes
         return replaced, changes
@@ -118,9 +142,7 @@ def _replace_exact_strings(value: Any, source: str, target: str) -> tuple[Any, i
         replaced_list = []
         changes = 0
         for nested in value:
-            replaced_value, nested_changes = _replace_exact_strings(
-                nested, source, target
-            )
+            replaced_value, nested_changes = _replace_exact_strings(nested, source, target)
             replaced_list.append(replaced_value)
             changes += nested_changes
         return replaced_list, changes
@@ -158,15 +180,11 @@ def prepare_runtime_metadata(model_path: Path, recipe: Recipe) -> dict[str, Any]
             f"Artifact contains both {source} and {target}; refusing a partial migration"
         )
     if not current_counts[source]:
-        raise ValueError(
-            f"Artifact does not contain producer quantization type {source}"
-        )
+        raise ValueError(f"Artifact does not contain producer quantization type {source}")
 
     migrated, replacements = _replace_exact_strings(description, source, target)
     if replacements != current_counts[source]:
-        raise ValueError(
-            f"Expected {current_counts[source]} replacements, produced {replacements}"
-        )
+        raise ValueError(f"Expected {current_counts[source]} replacements, produced {replacements}")
 
     if not backup_path.exists():
         shutil.copy2(description_path, backup_path)
@@ -219,31 +237,19 @@ def restore_modelslim_metadata(model_path: Path, recipe: Recipe) -> dict[str, An
     active_counts = _quant_type_counts(active)
     backup_counts = _quant_type_counts(backup)
     if not backup_counts[recipe.producer_quant_type]:
-        raise ValueError(
-            f"Backup does not contain {recipe.producer_quant_type}: {backup_path}"
-        )
+        raise ValueError(f"Backup does not contain {recipe.producer_quant_type}: {backup_path}")
     if backup_counts[recipe.runtime_quant_type]:
-        raise ValueError(
-            f"Backup unexpectedly contains {recipe.runtime_quant_type}: {backup_path}"
-        )
+        raise ValueError(f"Backup unexpectedly contains {recipe.runtime_quant_type}: {backup_path}")
 
-    if (
-        active_counts[recipe.producer_quant_type]
-        and not active_counts[recipe.runtime_quant_type]
-    ):
+    if active_counts[recipe.producer_quant_type] and not active_counts[recipe.runtime_quant_type]:
         return {
             "changed": False,
             "restored": False,
             "active_quant_type": recipe.producer_quant_type,
             "source": str(backup_path),
         }
-    if (
-        active_counts[recipe.producer_quant_type]
-        and active_counts[recipe.runtime_quant_type]
-    ):
-        raise ValueError(
-            "Active metadata contains a partial quantization-type migration"
-        )
+    if active_counts[recipe.producer_quant_type] and active_counts[recipe.runtime_quant_type]:
+        raise ValueError("Active metadata contains a partial quantization-type migration")
     if not active_counts[recipe.runtime_quant_type]:
         raise ValueError(
             f"Active metadata does not contain {recipe.runtime_quant_type}; "
@@ -253,10 +259,7 @@ def restore_modelslim_metadata(model_path: Path, recipe: Recipe) -> dict[str, An
     expected_active, replacements = _replace_exact_strings(
         backup, recipe.producer_quant_type, recipe.runtime_quant_type
     )
-    if (
-        replacements != backup_counts[recipe.producer_quant_type]
-        or active != expected_active
-    ):
+    if replacements != backup_counts[recipe.producer_quant_type] or active != expected_active:
         raise ValueError(
             "Active metadata differs from the preserved ModelSlim migration; "
             "refusing to overwrite later changes"
@@ -410,9 +413,23 @@ def build_runtime_contract(
                 "granularity": "per_token",
                 "dynamic": True,
             },
-            "scale": {"dtype": "float32", "weight_shape": "out_1", "activation_shape": "runtime_per_token", "scale_bias": "forbidden"},
-            "zero_point": {"weight": "required", "activation": "runtime", "dtype": "float32", "semantics": "additive_offset_before_scale"},
-            "operators": ["torch_npu.npu_dynamic_quant", "torch_npu.npu_convert_weight_to_int4pack", "torch_npu.npu_quant_matmul"],
+            "scale": {
+                "dtype": "float32",
+                "weight_shape": "out_1",
+                "activation_shape": "runtime_per_token",
+                "scale_bias": "forbidden",
+            },
+            "zero_point": {
+                "weight": "required",
+                "activation": "runtime",
+                "dtype": "float32",
+                "semantics": "additive_offset_before_scale",
+            },
+            "operators": [
+                "torch_npu.npu_dynamic_quant",
+                "torch_npu.npu_convert_weight_to_int4pack",
+                "torch_npu.npu_quant_matmul",
+            ],
         },
         "W4A8": {
             "weight": {
@@ -426,18 +443,76 @@ def build_runtime_contract(
                 "group_size": None,
             },
             "activation": {"bits": 8, "dtype": "int8", "granularity": "per_token", "dynamic": True},
-            "scale": {"dtype": "float32", "weight_shape": "out_1", "activation_shape": "runtime_per_token", "scale_bias": "required_out_1_or_16"},
-            "zero_point": {"weight": "required", "activation": "runtime", "dtype": "float32", "semantics": "additive_offset_before_scale"},
-            "operators": ["torch_npu.npu_dynamic_quant", "torch_npu.npu_convert_weight_to_int4pack", "torch_npu.npu_quant_matmul"],
+            "scale": {
+                "dtype": "float32",
+                "weight_shape": "out_1",
+                "activation_shape": "runtime_per_token",
+                "scale_bias": "required_out_1_or_16",
+            },
+            "zero_point": {
+                "weight": "required",
+                "activation": "runtime",
+                "dtype": "float32",
+                "semantics": "additive_offset_before_scale",
+            },
+            "operators": [
+                "torch_npu.npu_dynamic_quant",
+                "torch_npu.npu_convert_weight_to_int4pack",
+                "torch_npu.npu_quant_matmul",
+            ],
         },
     }
     if recipe.quant_scheme not in profiles:
         raise ValueError(f"unsupported contract profile: {recipe.quant_scheme}")
     profile = profiles[recipe.quant_scheme]
-    description_hash = sha256_file(description_path)
+    file_contract = {
+        "config": _file_record(config_path),
+        "description": _file_record(description_path),
+        "indexes": [_file_record(model_path / filename) for filename in inspection["index_files"]],
+        "weights": [_file_record(model_path / filename) for filename in inspection["weight_files"]],
+    }
+    content_digest = _artifact_content_digest(file_contract)
+    artifact_id = f"{config['model_type']}:{recipe.quant_scheme}:{content_digest[:16]}"
+    profiles_evidence = verified_profiles or []
+    results_evidence = evidence_results or []
+    if evidence_level == "schema_only":
+        if profiles_evidence or results_evidence:
+            raise ValueError("schema_only evidence must not declare profiles or results")
+    elif recipe.quant_scheme not in profiles_evidence or not results_evidence:
+        raise ValueError(
+            f"{evidence_level} evidence requires the {recipe.quant_scheme} profile "
+            "and at least one result"
+        )
+    result_records = []
+    result_profiles: set[str] = set()
+    for result in results_evidence:
+        result_path = Path(result)
+        if result_path.is_absolute() or ".." in result_path.parts or not result_path.parts:
+            raise ValueError(f"evidence result must be a safe relative path: {result}")
+        if not (model_path / result_path).is_file():
+            raise ValueError(f"evidence result does not exist: {result}")
+        evidence = load_evidence(model_path / result_path)
+        if evidence["profile"] not in profiles_evidence:
+            raise ValueError(
+                f"evidence result profile {evidence['profile']} is not verified: {result}"
+            )
+        if evidence["profile"] != "BF16":
+            if evidence["artifact"]["artifact_id"] != artifact_id:
+                raise ValueError(f"evidence result artifact_id does not match: {result}")
+            if evidence["artifact"]["artifact_files_sha256"] != content_digest:
+                raise ValueError(f"evidence result artifact file digest does not match: {result}")
+        result_profiles.add(evidence["profile"])
+        result_records.append(_relative_file_record(model_path, result))
+    if evidence_level != "schema_only" and set(profiles_evidence) != result_profiles:
+        raise ValueError("every verified profile must have a matching evidence result")
+    if evidence_level == "matched_benchmark" and not {
+        "BF16",
+        recipe.quant_scheme,
+    } <= result_profiles:
+        raise ValueError("matched_benchmark requires BF16 and quantized evidence records")
     return {
-        "schema_version": "1.0.0",
-        "artifact_id": f"{config['model_type']}:{recipe.quant_scheme}:{description_hash[:16]}",
+        "schema_version": "1.1.0",
+        "artifact_id": artifact_id,
         "format": "modelslim-ascend-v1",
         "model": {
             "model_type": config["model_type"],
@@ -469,16 +544,11 @@ def build_runtime_contract(
             "vllm": ">=0.17.2.post2.dev27,<0.18",
             "vllm_ascend": ">=0.1.dev2790,<0.2",
         },
-        "files": {
-            "config": "config.json",
-            "description": "quant_model_description.json",
-            "description_sha256": description_hash,
-            "weights": inspection["weight_files"],
-        },
+        "files": file_contract,
         "evidence": {
             "level": evidence_level,
-            "verified_profiles": verified_profiles or [],
-            "results": evidence_results or [],
+            "verified_profiles": profiles_evidence,
+            "results": result_records,
         },
     }
 
@@ -499,5 +569,7 @@ def write_runtime_contract(
         evidence_results=evidence_results,
     )
     destination = model_path / RUNTIME_CONTRACT_FILENAME
-    destination.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    destination.write_text(
+        json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return destination

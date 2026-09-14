@@ -4,6 +4,17 @@ This page records only results that can be traced to existing raw logs. It
 deliberately does not label unmatched or incomplete measurements as a matched
 BF16/W8A8 benchmark.
 
+## Runtime Extension 0.4.1 / contract 1.1 NPU revalidation
+
+The contract 1.1 artifact passed complete admission, NPU 7 model loading,
+deterministic chat completion, disabled fail-closed behavior, native
+`W8A8_MIX` rollback, and install/uninstall immutability checks. The bound
+artifact evidence level is `npu_e2e`.
+
+See [`validation-w8a8-v0.4.1-20260914.md`](validation-w8a8-v0.4.1-20260914.md)
+for the exact artifact identity, software versions, HBM snapshot, raw-log
+locations, and remaining matched-benchmark limitations.
+
 ## Fresh Toolkit to Runtime Extension E2E
 
 - Public artifact name: `Qwen2.5-14B-Instruct-w8a8`
@@ -18,8 +29,9 @@ BF16/W8A8 benchmark.
 - Device: NPU 7, tensor parallel 1
 - Result: model load, health request, chat completion and shutdown passed
 - Quantization log: retained in the local W8A8 experiment archive
-- Runtime log:
-  `/data/jxd/jxd-quant-results/w8a8-toolkit-v030-runtime-e2e.log`
+- Runtime log: retained in the private experiment archive; it must be attached
+  to a GitHub release or committed as a redacted evidence artifact before this
+  result can be independently reproduced.
 
 This establishes `npu_e2e`, not `matched_benchmark`.
 
@@ -40,15 +52,14 @@ revision is still required before publishing a PPL delta.
 
 ## Existing W8A8 ShareGPT-V3 runs
 
-Dataset:
-`/root/workspace1/vllm-hust-benchmark/ShareGPT_V3_unfiltered_cleaned_split.json`
+Dataset file: `ShareGPT_V3_unfiltered_cleaned_split.json`
 
 Dataset SHA-256:
 `35f0e213ce091ed9b9af2a1f0755e9d39f9ccec34ab281cd4ca60d70f6479ba4`
 
 All reported values are medians of three recorded runs with 200 successful and
-zero failed requests. The tokenizer is
-`/root/models/Qwen2.5-14B-Instruct`.
+zero failed requests. The tokenizer is the unquantized
+`Qwen/Qwen2.5-14B-Instruct` tokenizer corresponding to the evaluated model.
 
 | RPS / concurrency | Req/s | Output tok/s | Total tok/s | Mean TTFT ms | P99 TTFT ms | Mean TPOT ms | P99 TPOT ms |
 |---|---:|---:|---:|---:|---:|---:|---:|

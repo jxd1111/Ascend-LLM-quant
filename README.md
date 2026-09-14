@@ -55,19 +55,21 @@ dataset, PPL, or benchmark lifecycle.
 ## Install the offline Toolkit
 
 ```bash
-python -m pip install -e /root/jxd-ascend-quant \
+git clone https://github.com/jxd1111/Ascend-LLM-quant.git
+cd Ascend-LLM-quant
+python -m pip install -e . \
   --no-deps --no-build-isolation
 ```
 
 The canonical command is `ascend-quant-toolkit`.
 
 ```bash
-ascend-quant-toolkit doctor --path /data/jxd
+ascend-quant-toolkit doctor --path /path/to/output-volume
 ascend-quant-toolkit list-recipes
 ascend-quant-toolkit plan \
   --recipe qwen25-w8a8 \
-  --model /root/models/Qwen2.5-14B-Instruct \
-  --output /data/jxd/models/Qwen2.5-14B-Instruct-w8a8 \
+  --model /path/to/Qwen2.5-14B-Instruct \
+  --output /path/to/Qwen2.5-14B-Instruct-w8a8 \
   --device npu:7
 ```
 
@@ -92,9 +94,18 @@ Do not claim NPU or benchmark verification by changing the evidence flag alone;
 the referenced result files must exist and follow the matched protocol in
 [`docs/acceptance-matrix.md`](docs/acceptance-matrix.md).
 
+Contract 1.1 binds `config.json`, the quantization description, every
+safetensors shard, every safetensors index, and referenced evidence records to
+their exact size and SHA-256. Runtime validation therefore reads every weight
+shard before admission. Existing contract-1.0 artifacts must regenerate only
+their contract metadata; their weight tensors are not rewritten. See
+[`docs/artifact-contract-v1.1-migration.md`](docs/artifact-contract-v1.1-migration.md).
+
 Matched BF16/W8A8/W4A4/W4A8 records use
 [`evidence/example-result-v1.json`](evidence/example-result-v1.json) and are
-checked with:
+described in [`evidence/README.md`](evidence/README.md). The example contains
+intentional placeholders and becomes valid only after every placeholder is
+replaced. Check a completed copy with:
 
 ```bash
 ascend-quant-toolkit validate-evidence --file result.json
@@ -103,7 +114,7 @@ ascend-quant-toolkit validate-evidence --file result.json
 ## Install the runtime extension
 
 ```bash
-python -m pip install -e /root/jxd-ascend-quant/runtime-extension \
+python -m pip install -e ./runtime-extension \
   --no-build-isolation
 
 vllm-ascend-quant-ext check --model /path/to/model

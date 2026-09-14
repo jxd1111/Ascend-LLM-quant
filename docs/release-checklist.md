@@ -8,7 +8,11 @@
 - [x] Static manifest package is included in the wheel.
 - [x] `vllm_hust.extension_bundles` entry point matches the Bundle ID.
 - [x] Bundle declares an import-only artifact validator with empty activation.
+- [x] Import-only validator requests filesystem-read permission only.
+- [x] Experimental manifest host range is restricted to the validated vLLM-Ascend line.
 - [x] Closed W8A8 artifact contract and negative tests exist.
+- [x] Contract 1.1 binds config, description, index, weight and evidence files by size/SHA-256.
+- [x] Safetensors payload bounds, dtype/shape byte spans and overlap/contiguity fail closed.
 - [x] Admission runs before implementation imports.
 - [x] Manager-facing descriptor/check/plan/render adapter exists.
 - [x] Enabled Manager plan/render fail closed while status is import-only.
@@ -16,6 +20,7 @@
 - [x] Namespaced W8A8 aliases delegate to host-owned implementations.
 - [x] Native `W8A8_MIX` metadata restoration is explicit and documented.
 - [x] W8A8 Toolkit to Runtime Extension 0.4.0 NPU E2E has passed.
+- [x] Runtime Extension 0.4.1 / contract 1.1 NPU E2E revalidation has passed.
 - [x] Direct plugin-disabled `ASCEND_QUANT_W8A8` startup fails closed.
 - [x] Direct plugin-disabled native `W8A8_MIX` startup and inference pass.
 - [x] Wheel/sdist content and isolated install/discovery/uninstall verification is scripted.
