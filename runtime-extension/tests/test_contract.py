@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from vllm_ascend_quant_ext.contract import ContractError, validate_artifact
+from vllm_ascend_quant_ext.contract import (
+    ContractError,
+    _installed_version,
+    validate_artifact,
+)
 from vllm_ascend_quant_ext.manager import plan, provider, render
 
 
@@ -564,3 +568,32 @@ def test_manager_adapter_refuses_enabled_plan_and_render(tmp_path: Path, monkeyp
         provider.plan(configuration)
     with pytest.raises(RuntimeError, match="import_only"):
         provider.render(configuration)
+
+
+class FakeDistribution:
+    def __init__(self, name: str, package_version: str):
+        self.metadata = {"Name": name}
+        self.version = package_version
+
+
+def test_installed_version_normalizes_distribution_name(monkeypatch):
+    monkeypatch.setattr(
+        "vllm_ascend_quant_ext.contract.distributions",
+        lambda: [FakeDistribution("vllm_hust", "0.17.2")],
+    )
+    assert _installed_version(("vllm-hust", "vllm")) == (
+        "vllm-hust",
+        "0.17.2",
+    )
+
+
+def test_conflicting_installed_versions_fail_closed(monkeypatch):
+    monkeypatch.setattr(
+        "vllm_ascend_quant_ext.contract.distributions",
+        lambda: [
+            FakeDistribution("vllm-hust", "0.17.2"),
+            FakeDistribution("vllm_hust", "0.18.0"),
+        ],
+    )
+    with pytest.raises(ContractError, match="ambiguous installed package metadata"):
+        _installed_version(("vllm-hust", "vllm"))

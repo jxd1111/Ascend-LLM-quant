@@ -8,11 +8,12 @@ import os
 import re
 import struct
 from dataclasses import dataclass
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import distributions
 from pathlib import Path
 from typing import Any
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 CONTRACT_FILENAME = "ascend_quant_artifact.json"
@@ -261,11 +262,30 @@ def _validate_evidence_claims(
 
 
 def _installed_version(aliases: tuple[str, ...]) -> tuple[str, str] | None:
+    """Resolve one distribution without trusting arbitrary metadata order.
+
+    ``importlib.metadata.version`` returns the first matching ``dist-info``
+    directory. Editable environments can retain several versions of the same
+    distribution. Reject conflicting metadata instead of admitting an
+    artifact against a stale version record.
+    """
+
     for name in aliases:
-        try:
-            return name, version(name)
-        except PackageNotFoundError:
+        canonical_name = canonicalize_name(name)
+        versions = {
+            str(distribution.version)
+            for distribution in distributions()
+            if distribution.metadata.get("Name")
+            and canonicalize_name(distribution.metadata["Name"]) == canonical_name
+        }
+        if not versions:
             continue
+        if len(versions) != 1:
+            found = ", ".join(sorted(versions, key=Version))
+            raise ContractError(
+                f"ambiguous installed package metadata for {name}: {found}"
+            )
+        return name, versions.pop()
     return None
 
 

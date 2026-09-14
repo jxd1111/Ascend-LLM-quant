@@ -15,6 +15,10 @@
   hardware, request-count, metric, HBM, raw-log, and artifact-identity checks.
 - Restrict the experimental Bundle host version and reduce the import-only
   validator permission set to filesystem read.
+- Reject conflicting duplicate installed-package metadata during software
+  compatibility admission instead of selecting an order-dependent version.
+- Record the Runtime Extension 0.4.1 / contract 1.1 Ascend NPU revalidation,
+  including disabled fail-closed and native rollback checks.
 
 - Remove personal-name branding from the Toolkit's import package, CLI entry
   point, recipe entry-point group, artifact manifest, and package authorship;

@@ -4,6 +4,17 @@ This page records only results that can be traced to existing raw logs. It
 deliberately does not label unmatched or incomplete measurements as a matched
 BF16/W8A8 benchmark.
 
+## Runtime Extension 0.4.1 / contract 1.1 NPU revalidation
+
+The contract 1.1 artifact passed complete admission, NPU 7 model loading,
+deterministic chat completion, disabled fail-closed behavior, native
+`W8A8_MIX` rollback, and install/uninstall immutability checks. The bound
+artifact evidence level is `npu_e2e`.
+
+See [`validation-w8a8-v0.4.1-20260914.md`](validation-w8a8-v0.4.1-20260914.md)
+for the exact artifact identity, software versions, HBM snapshot, raw-log
+locations, and remaining matched-benchmark limitations.
+
 ## Fresh Toolkit to Runtime Extension E2E
 
 - Public artifact name: `Qwen2.5-14B-Instruct-w8a8`

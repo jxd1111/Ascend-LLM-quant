@@ -20,7 +20,7 @@
 - [x] Namespaced W8A8 aliases delegate to host-owned implementations.
 - [x] Native `W8A8_MIX` metadata restoration is explicit and documented.
 - [x] W8A8 Toolkit to Runtime Extension 0.4.0 NPU E2E has passed.
-- [ ] Runtime Extension 0.4.1 / contract 1.1 NPU E2E revalidation has passed.
+- [x] Runtime Extension 0.4.1 / contract 1.1 NPU E2E revalidation has passed.
 - [x] Direct plugin-disabled `ASCEND_QUANT_W8A8` startup fails closed.
 - [x] Direct plugin-disabled native `W8A8_MIX` startup and inference pass.
 - [x] Wheel/sdist content and isolated install/discovery/uninstall verification is scripted.
