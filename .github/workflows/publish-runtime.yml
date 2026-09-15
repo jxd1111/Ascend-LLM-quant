@@ -1,0 +1,104 @@
+name: Publish Runtime Extension
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-runtime-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and verify distributions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the released revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build and verification dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build packaging pytest setuptools twine wheel
+
+      - name: Verify the release tag matches the package version
+        run: |
+          VERSION="$(
+            PYTHONPATH=runtime-extension/src \
+              python -c 'from vllm_ascend_quant_ext._version import __version__; print(__version__)'
+          )"
+          EXPECTED_TAG="runtime-v${VERSION}"
+          if [ "${GITHUB_REF_NAME}" != "${EXPECTED_TAG}" ]; then
+            echo "Release tag ${GITHUB_REF_NAME} does not match ${EXPECTED_TAG}."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "The released revision is not contained in origin/main."
+            exit 1
+          fi
+
+      - name: Run runtime-extension tests
+        run: python -m pytest -q runtime-extension/tests
+
+      - name: Build runtime extension only
+        run: |
+          python -m build \
+            --wheel \
+            --sdist \
+            --no-isolation \
+            --outdir runtime-extension/dist \
+            runtime-extension
+
+      - name: Check distribution metadata
+        run: python -m twine check runtime-extension/dist/*
+
+      - name: Verify wheel, sdist, discovery and uninstall
+        run: |
+          python runtime-extension/tools/verify_release.py \
+            --wheel runtime-extension/dist/vllm_ascend_quant_ext-*.whl \
+            --sdist runtime-extension/dist/vllm_ascend_quant_ext-*.tar.gz
+
+      - name: Upload verified distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: runtime-extension/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish distributions to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/vllm-ascend-quant-ext
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download verified distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish distributions with PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          print-hash: true
