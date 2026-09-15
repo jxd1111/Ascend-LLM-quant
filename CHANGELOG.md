@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## vllm-ascend-quant-ext 0.4.1a1 - 2026-09-15
+
+- Prepare the first public PyPI alpha of the Runtime Extension.
+- Keep the Extension Manager integration fail-closed and `import_only` until
+  the typed host protocols are accepted.
+- Publish only the independent `runtime-extension` distribution; the offline
+  Toolkit remains outside the vLLM process and this PyPI release.
+
 - Bump Toolkit and Runtime Extension to `0.4.1` and artifact contract to
   `1.1.0`.
 - Bind config, quantization description, safetensors shards/indexes, and
