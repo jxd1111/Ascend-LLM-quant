@@ -50,6 +50,7 @@ def _check_wheel(wheel: Path) -> None:
         names = set(archive.namelist())
     suffixes = {
         "vllm_ascend_quant_ext/_version.py",
+        "vllm_ascend_quant_ext/host_baseline.py",
         "vllm_ascend_quant_ext/schemes/w8a8.py",
         ".dist-info/entry_points.txt",
     }
@@ -80,6 +81,7 @@ def _check_sdist(sdist: Path) -> None:
     suffixes = {
         "pyproject.toml",
         "src/vllm_ascend_quant_ext/_version.py",
+        "src/vllm_ascend_quant_ext/host_baseline.py",
         "src/vllm_ascend_quant_ext/plugin.py",
         "src/vllm_ascend_quant_ext/schemes/w8a8.py",
     }

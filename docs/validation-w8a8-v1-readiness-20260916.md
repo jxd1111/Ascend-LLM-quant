@@ -25,6 +25,8 @@
   模型家族在新增独立证据前 fail closed；
 - 对应构建依赖是 torch `2.13.0`、torch-npu `2.13.0rc1` 和 CANN
   `9.1.x`。
+- `verify_host_sources.py` 将精确 revision、`v1` 父链、Ascend verified-core
+  文件和双方公共插件接口纳入 CI，防止只改文档而未真正锁定源码。
 
 ## 发布前仍需完成
 

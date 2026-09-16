@@ -5,6 +5,7 @@
 - [ ] Only `vllm.general_plugins/vllm_ascend_quant` is present.
 - [ ] No `vllm_hust.extension_bundles` entry point or Manager manifest exists.
 - [ ] Frozen vLLM-HUST and vLLM-Ascend-HUST revisions are documented and tested.
+- [ ] `verify_host_sources.py` passes for the exact checked-out host commits.
 - [ ] Installation and plugin discovery are default-off and device-free.
 - [ ] Invalid artifact, wrong host revision and duplicate scheme fail closed.
 - [ ] Unit tests and Ruff pass on Python 3.10, 3.11 and 3.12.

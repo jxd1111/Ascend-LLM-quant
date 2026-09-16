@@ -16,6 +16,8 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
+from .host_baseline import FROZEN_HOST_REVISIONS
+
 CONTRACT_FILENAME = "ascend_quant_artifact.json"
 SCHEMA_VERSION = "1.1.0"
 MAX_SAFETENSORS_HEADER_BYTES = 128 * 1024 * 1024
@@ -309,12 +311,6 @@ def _check_version(label: str, installed: str | None, requirement: str) -> str:
     if not accepted:
         raise ContractError(f"incompatible {label}: installed {installed}, required {requirement}")
     return installed
-
-
-FROZEN_HOST_REVISIONS = {
-    "vllm": "gf18cf803c5",
-    "vllm_ascend": "g74f0c0a27",
-}
 
 
 def _check_frozen_revision(label: str, installed: str) -> str:

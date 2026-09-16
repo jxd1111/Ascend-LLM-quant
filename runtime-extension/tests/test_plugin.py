@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from vllm_ascend_quant_ext.host_baseline import FROZEN_HOST_REVISIONS
 from vllm_ascend_quant_ext.plugin import register, status
 
 
@@ -30,3 +31,7 @@ def test_status_exposes_native_vllm_entry_point_and_frozen_host():
     assert report["entry_point"] == "vllm.general_plugins/vllm_ascend_quant"
     assert "v1/f18cf803c5" in report["host"]
     assert "74f0c0a27" in report["host"]
+    assert FROZEN_HOST_REVISIONS == {
+        "vllm": "gf18cf803c5",
+        "vllm_ascend": "g74f0c0a27",
+    }

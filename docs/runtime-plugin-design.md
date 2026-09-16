@@ -33,6 +33,18 @@ CANN             >=9.1,<9.2
 No compatibility is claimed for other revisions. The embedded Git revision
 tokens are checked in addition to numeric package requirements.
 
+The lock is executable rather than documentation-only:
+
+```bash
+python runtime-extension/tools/verify_host_sources.py \
+  --vllm-source /path/to/vllm-hust-v1 \
+  --vllm-ascend-source /path/to/vllm-ascend-hust
+```
+
+The check verifies exact Git revisions, the `v1` parent chain, Ascend's
+recorded verified core, `vllm.general_plugins`, the typed scheme registry and
+the public dense-linear W8A8 class.
+
 ## Inputs
 
 Activation inputs are three environment variables:

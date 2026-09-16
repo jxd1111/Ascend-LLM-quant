@@ -13,6 +13,8 @@
   not expose a PDMix fused-MoE implementation.
 - Keep earlier validation records immutable; v1 NPU end-to-end validation is
   required before this alpha can be published as verified.
+- Add an executable host-source lock and CI job for exact revisions, merge
+  ancestry, Ascend verified-core provenance and the public plugin/W8A8 APIs.
 
 ## vllm-ascend-quant-ext 0.4.1a2 - 2026-09-16
 

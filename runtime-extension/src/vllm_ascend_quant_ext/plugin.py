@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 from .contract import ContractError, validate_artifact
+from .host_baseline import host_description
 
 LOGGER = logging.getLogger(__name__)
 ENABLE_ENV = "VLLM_ASCEND_QUANT_EXT_ENABLE"
@@ -65,7 +66,7 @@ def status() -> dict[str, object]:
         "enable_environment_variable": ENABLE_ENV,
         "artifact_environment_variable": ARTIFACT_ENV,
         "entry_point": "vllm.general_plugins/vllm_ascend_quant",
-        "host": "vllm-hust@v1/f18cf803c5 + vllm-ascend-hust@74f0c0a27",
+        "host": host_description(),
     }
 
 
