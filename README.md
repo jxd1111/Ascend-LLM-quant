@@ -1,71 +1,39 @@
-# Ascend Quant Toolkit
+# Ascend Quant Toolkit and W8A8 Runtime Extension
 
-> Classification: **Tool** — offline development lifecycle only.
+This repository contains two separately packaged components:
 
-> Project status: W8A8 runtime-extension prototype and NPU E2E are available;
-> the Extension Manager manifest/provider API is awaiting framework-team review.
+- **Ascend Quant Toolkit**: offline calibration, ModelSlim conversion,
+  contract export and evaluation evidence.
+- **vllm-ascend-quant-ext**: read-only W8A8 runtime plugin loaded through
+  vLLM's native `vllm.general_plugins` interface.
 
-## 中文设计入口
+The Toolkit is not installed in the serving process. The Runtime Extension
+contains no dataset, calibration or model-conversion lifecycle. Model-weight
+quantization is also independent of Adaptive Quantized KV.
 
-首次了解本项目，建议按以下顺序阅读：
+## Frozen runtime baseline
 
-1. [中文设计概览](docs/design-overview.zh-CN.md)
-2. [文档导航](docs/README.md)
-3. [当前 vLLM-Ascend 量化架构](docs/current-vllm-ascend-quant-architecture.md)
-4. [Runtime Extension 详细设计](docs/runtime-plugin-design.md)
-5. [Extension Manager 对接契约](docs/extension-manager-handoff.md)
-6. [验收矩阵](docs/acceptance-matrix.md)
+The current alpha supports exactly the source pair used by the project:
 
-当前状态：
+| Component | Supported revision/version |
+|---|---|
+| vLLM-HUST | `6cff125127bac512488dc90a9812dcafddb65298` |
+| vLLM-Ascend-HUST | `203a33e677ac6728108473e749069244bea00373` |
+| torch | `2.9.0` |
+| torch-npu | `2.9.0` |
+| CANN | `>=8.5,<8.6` |
 
-- W8A8 的 Toolkit → Runtime Extension → Ascend NPU 推理已验证；
-- Runtime Extension 原型、产物契约和 fail-closed 校验已实现；
-- Extension Manager 正式接入及 vLLM-Ascend 公共 Scheme API 待框架团队评审；
-- W4A4/W4A8 尚未声明为真实硬件验证能力。
+The plugin intentionally fails closed for a different vLLM/vLLM-Ascend Git
+revision, even if its numeric package version appears compatible.
 
-跨团队设计评审和待确认接口记录在
-[Issue #1](https://github.com/jxd1111/Ascend-LLM-quant/issues/1)。
-
-Design is the gate for further runtime extraction. Start with:
-
-- [`docs/current-vllm-ascend-quant-architecture.md`](docs/current-vllm-ascend-quant-architecture.md)
-- [`docs/runtime-plugin-design.md`](docs/runtime-plugin-design.md)
-- [`docs/runtime-plugin-roadmap.md`](docs/runtime-plugin-roadmap.md)
-- [`docs/adr/0001-runtime-plugin-boundary.md`](docs/adr/0001-runtime-plugin-boundary.md)
-
-This repository owns calibration, ModelSlim conversion, quantized artifact
-generation, provenance, PPL/accuracy evaluation inputs, and matched benchmark
-evidence. It is not itself a vLLM plugin and its root distribution does not
-register a `vllm.general_plugins` entry point.
-
-The runtime component is a separate Python distribution under
-[`runtime-extension/`](runtime-extension/): **`vllm-ascend-quant-ext`**. That
-package is classified as a **Plugin** and contains no calibration, conversion,
-dataset, PPL, or benchmark lifecycle.
-
-## Ownership boundary
-
-| Component | Classification | Lifecycle owner | May modify/build model artifacts |
-|---|---|---|---|
-| Ascend Quant Toolkit | Tool | offline developer/operator | yes, only during explicit offline conversion/export |
-| vLLM Ascend Quant Extension | Plugin | vLLM-Ascend | no; runtime access is read-only |
-| vLLM-HUST Extension Manager | Manager | operator/manager | no; discover/check/plan/render only |
-| Adaptive Quantized KV | separate capability | its own runtime owner | outside this repository |
-
-## Install the offline Toolkit
+## Offline quantization
 
 ```bash
 git clone https://github.com/jxd1111/Ascend-LLM-quant.git
 cd Ascend-LLM-quant
-python -m pip install -e . \
-  --no-deps --no-build-isolation
-```
+python -m pip install -e . --no-deps --no-build-isolation
 
-The canonical command is `ascend-quant-toolkit`.
-
-```bash
 ascend-quant-toolkit doctor --path /path/to/output-volume
-ascend-quant-toolkit list-recipes
 ascend-quant-toolkit plan \
   --recipe qwen25-w8a8 \
   --model /path/to/Qwen2.5-14B-Instruct \
@@ -73,138 +41,63 @@ ascend-quant-toolkit plan \
   --device npu:7
 ```
 
-Replace `plan` with `quantize` to run the offline job. Successful quantization
-writes both provenance and the frozen runtime contract:
+Replace `plan` with `quantize` to execute conversion. A successful export
+writes the provenance, ModelSlim description and closed runtime contract. The
+contract binds config, indexes, weight shards and evidence files by size and
+SHA-256. It is validation metadata; it does not rewrite weight tensors.
 
-- `ascend_quant_manifest.json`
-- `ascend_quant_artifact.json`
-- `quant_model_description.json`
-- `quant_model_description.modelslim.json` (legacy rollback copy)
+## Runtime plugin
 
-For a previously produced plugin-format model, export the contract explicitly:
-
-```bash
-ascend-quant-toolkit export-contract \
-  --model /path/to/model \
-  --recipe qwen25-w8a8 \
-  --evidence-level schema_only
-```
-
-Do not claim NPU or benchmark verification by changing the evidence flag alone;
-the referenced result files must exist and follow the matched protocol in
-[`docs/acceptance-matrix.md`](docs/acceptance-matrix.md).
-
-Contract 1.1 binds `config.json`, the quantization description, every
-safetensors shard, every safetensors index, and referenced evidence records to
-their exact size and SHA-256. Runtime validation therefore reads every weight
-shard before admission. Existing contract-1.0 artifacts must regenerate only
-their contract metadata; their weight tensors are not rewritten. See
-[`docs/artifact-contract-v1.1-migration.md`](docs/artifact-contract-v1.1-migration.md).
-
-Matched BF16/W8A8/W4A4/W4A8 records use
-[`evidence/example-result-v1.json`](evidence/example-result-v1.json) and are
-described in [`evidence/README.md`](evidence/README.md). The example contains
-intentional placeholders and becomes valid only after every placeholder is
-replaced. Check a completed copy with:
+Install the independent distribution:
 
 ```bash
-ascend-quant-toolkit validate-evidence --file result.json
+python -m pip install vllm-ascend-quant-ext==0.4.1a2
+vllm-ascend-quant-ext check --model /path/to/w8a8-model
 ```
 
-## Install the runtime extension
+Enable it for the next vLLM process:
 
 ```bash
-python -m pip install -e ./runtime-extension \
-  --no-build-isolation
+export VLLM_ASCEND_QUANT_EXT_ENABLE=1
+export VLLM_ASCEND_QUANT_EXT_ARTIFACT=/path/to/w8a8-model
 
-vllm-ascend-quant-ext check --model /path/to/model
-vllm-ascend-quant-ext plan --model /path/to/model   # direct diagnostic only
-vllm-ascend-quant-ext render --model /path/to/model # direct diagnostic only
+vllm-hust serve /path/to/w8a8-model \
+  --host 0.0.0.0 \
+  --port 18000
 ```
 
-Installation alone has no runtime effect. All commands are read-only. The
-extension's own `plan` and `render` commands describe the already tested direct
-diagnostic path; they are not Extension Manager activation evidence.
+Leave `VLLM_PLUGINS` unset unless the deployment already maintains a complete
+allowlist for every required Ascend platform and general plugin. The
+extension-owned enable flag is the activation gate.
 
-The runtime wheel registers the experimental Extension Bundle
-`org.vllm-hust.ascend-quant-runtime` through
-`vllm_hust.extension_bundles`. Its static
-manifest is packaged under
-`vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json`; discovery does
-not import the runtime implementation.
-
-The Bundle follows Manifest `0.2-experimental` as an `in_process_plugin`, but
-its implementation status is deliberately `import_only`. Manager discovery,
-inspection, and contract checks are supported; Manager enable/plan/render must
-fail closed until vLLM-Ascend publishes the declared versioned loader and
-operator-selection protocols.
-
-Current Manager inspection flow:
-
-```bash
-pip install vllm-hust-ext
-pip install vllm-ascend-quant-ext
-vllm-hust-ext extension inspect org.vllm-hust.ascend-quant-runtime
-vllm-hust-ext extension check org.vllm-hust.ascend-quant-runtime
-```
-
-The provisional Bundle/component identities used during framework review are:
+The installed wheel exposes only:
 
 ```text
-Bundle:    org.vllm-hust.ascend-quant-runtime
-Component: org.vllm-hust.ascend-quant-runtime/ascend-quant-artifact-validator
-Contract:  vllm.ascend.quantized-artifact-loader.v1
-Planes:    worker, device
-Status:    import_only
+vllm.general_plugins/vllm_ascend_quant
 ```
 
-Use the Bundle ID, rather than the Python distribution name, in Manager
-commands once the proposed kind/provider is admitted:
+It does not expose an Extension Manager Bundle and does not modify vLLM or
+vLLM-Ascend source. The plugin validates the artifact and frozen host first,
+then registers the namespaced `ASCEND_QUANT_W8A8` linear/MoE schemes by
+delegating to the host's selected W8A8 implementation.
+
+Installation alone has no runtime effect. The callback is idempotent and
+default-off. Unknown contract fields, incompatible versions/revisions, missing
+files, tensor mismatches and registration collisions abort activation.
+
+## Disable, recover and uninstall
+
+Stop the current vLLM process and start a new one after clearing selection:
 
 ```bash
-vllm-hust-ext extension inspect org.vllm-hust.ascend-quant-runtime
-vllm-hust-ext extension check org.vllm-hust.ascend-quant-runtime
+unset VLLM_ASCEND_QUANT_EXT_ENABLE
+unset VLLM_ASCEND_QUANT_EXT_ARTIFACT
+python -m pip uninstall -y vllm-ascend-quant-ext
 ```
 
-Do not run or document Manager enablement yet. Until both Host protocols are
-approved, use the extension's own direct-diagnostic commands only for local
-NPU validation and label the results accordingly.
-
-The framework-team hand-off is documented in
-[`docs/extension-manager-handoff.md`](docs/extension-manager-handoff.md), and
-release ownership/gates are tracked in
-[`docs/release-checklist.md`](docs/release-checklist.md). Existing traceable
-W8A8 results are recorded in
-[`docs/w8a8-evidence.md`](docs/w8a8-evidence.md).
-
-## Artifact contract and failure policy
-
-The closed JSON contract is documented in [`contracts/`](contracts/). It covers
-W8A8, W4A4, and W4A8 declarations for:
-
-- weight packing/layout and signed nibble semantics;
-- scale granularity and shape;
-- zero-point presence, dtype, and semantics;
-- supported model identity and rank/alignment constraints;
-- CANN, torch-npu, vLLM-HUST and vLLM-Ascend-HUST compatibility ranges;
-- ModelSlim loader, scheme provider, and required operators.
-
-Unknown fields, unknown schemes/operators/layouts, incomplete tensors, dtype or
-shape mismatches, hash mismatches, unsupported software versions, and absent
-scheme providers fail closed.
-
-W4A8 hierarchical per-group artifacts are deliberately not admitted by
-contract v1; the current validator rejects them instead of interpreting their
-secondary scale tensors as ordinary per-group scales.
-
-## Rollback and uninstall
-
-The Manager and runtime extension never rewrite model files. Disabling the
-extension removes its environment selection on the next start. Uninstalling
-the runtime wheel removes its registration, but an artifact whose active
-metadata contains `ASCEND_QUANT_W8A8` still requires the extension. Returning that
-artifact to the native vLLM-Ascend `W8A8_MIX` path is therefore an explicit
-offline Toolkit operation:
+The extension never modifies model files. If the active model description
+uses `ASCEND_QUANT_W8A8`, restoring the native `W8A8_MIX` description is an
+explicit offline operation:
 
 ```bash
 ascend-quant-toolkit restore-modelslim \
@@ -212,10 +105,15 @@ ascend-quant-toolkit restore-modelslim \
   --recipe qwen25-w8a8
 ```
 
-The command atomically restores `quant_model_description.json` byte-for-byte
-from the preserved `quant_model_description.modelslim.json`. It fails closed if the
-active metadata no longer exactly matches the migration generated by the
-Toolkit. Uninstall itself never modifies the model directory.
+## Documentation
 
-This repository never combines model-weight quantization with Adaptive
-Quantized KV manifests, lifecycle, compatibility claims, or configuration.
+- [Architecture](docs/architecture.md)
+- [Current vLLM-Ascend quantization flow](docs/current-vllm-ascend-quant-architecture.md)
+- [Runtime plugin design](docs/runtime-plugin-design.md)
+- [Artifact contract](contracts/README.md)
+- [Acceptance matrix](docs/acceptance-matrix.md)
+- [W8A8 evidence](docs/w8a8-evidence.md)
+- [Runtime packaging and release](docs/runtime-extension-packaging-and-release.zh-CN.md)
+
+Historical validation records describe the exact behavior of their published
+version and are not retroactively rewritten when integration policy changes.

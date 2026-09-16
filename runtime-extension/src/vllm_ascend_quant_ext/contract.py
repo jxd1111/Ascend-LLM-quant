@@ -44,15 +44,7 @@ class ContractError(ValueError):
 
 
 class ArtifactContractValidator:
-    """Import-only carrier exposed to the Extension Manager.
-
-    Loading this object has no torch, vLLM, vLLM-Ascend, device, or model
-    side effects. Runtime activation remains blocked until the host publishes
-    the versioned loader and operator-selection protocols declared by the
-    Bundle manifest.
-    """
-
-    status = "import_only"
+    """Side-effect-free programmatic artifact validator."""
 
     @staticmethod
     def validate(model_path: str | Path, *, check_software: bool = True) -> dict[str, Any]:
@@ -316,6 +308,23 @@ def _check_version(label: str, installed: str | None, requirement: str) -> str:
         raise ContractError(f"invalid {label} compatibility declaration: {requirement}") from exc
     if not accepted:
         raise ContractError(f"incompatible {label}: installed {installed}, required {requirement}")
+    return installed
+
+
+FROZEN_HOST_REVISIONS = {
+    "vllm": "g6cff12512",
+    "vllm_ascend": "g203a33e67",
+}
+
+
+def _check_frozen_revision(label: str, installed: str) -> str:
+    """Admit only the project-frozen vLLM/vLLM-Ascend source snapshots."""
+
+    required = FROZEN_HOST_REVISIONS[label]
+    if required not in installed.lower():
+        raise ContractError(
+            f"incompatible {label} revision: installed {installed}, required {required}"
+        )
     return installed
 
 
@@ -893,6 +902,8 @@ def validate_artifact(model_path: Path, *, check_software: bool = True) -> dict[
         for label, aliases in package_aliases.items():
             found = _installed_version(aliases)
             installed[label] = _check_version(label, found[1] if found else None, software[label])
+            if label in FROZEN_HOST_REVISIONS:
+                _check_frozen_revision(label, installed[label])
     return {
         "valid": True,
         "model": str(model_path),

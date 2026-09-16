@@ -7,7 +7,7 @@ startup lifecycle or compatibility ranges require a design update before code.
 
 1. Update or add an ADR under `docs/adr/`.
 2. Update `docs/runtime-plugin-design.md` and the artifact contract when needed.
-3. Obtain review from the quantization owner and the affected host/Manager owner.
+3. Obtain review from the quantization owner and the affected vLLM/vLLM-Ascend host owner.
 4. Implement the smallest change behind the approved interface.
 5. Add unit, negative and NPU E2E evidence appropriate to the change.
 

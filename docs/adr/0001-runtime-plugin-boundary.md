@@ -1,6 +1,6 @@
 # ADR 0001: Runtime quantization plugin boundary
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-03
 
 ## Context
@@ -16,19 +16,19 @@ Maintain two distributions:
 
 - `ascend-quant-toolkit` owns offline artifact production and evidence;
 - `vllm-ascend-quant-ext` owns read-only artifact admission, namespaced runtime
-  schemes and Manager-facing lifecycle data.
+  schemes and vLLM-native registration.
 
 vLLM-Ascend retains platform, operator, parallelism, compiler and typed host SPI
 ownership. Adaptive Quantized KV remains an independent extension.
 
-Production activation is Manager-managed and explicit. Direct environment
-activation is diagnostic only. Unsupported or ambiguous artifacts fail closed.
+Production activation uses the native `vllm.general_plugins` entry point and
+is explicit through `VLLM_PLUGINS` plus extension-owned admission variables.
+Unsupported or ambiguous artifacts fail closed.
 
 ## Consequences
 
 - quantized artifacts survive plugin disable/uninstall;
 - the runtime wheel stays small and avoids calibration dependencies;
 - extracting additional algorithms depends on a stable vLLM-Ascend SPI;
-- host-version ranges and artifact contracts must be versioned together;
-- a joint Manager/host/plugin E2E test is required before claiming formal
-  integration.
+- the frozen host revisions and artifact contracts must be versioned together;
+- a host/plugin NPU E2E test is required before claiming integration.

@@ -188,7 +188,7 @@ items for later phases; only W8A8 is hardware-verified by this project today.
 - namespaced aliases that delegate to host-owned scheme implementations;
 - artifact quant-type to scheme mapping;
 - capability negotiation and deterministic runtime plan;
-- Manager-facing metadata and enable/disable lifecycle.
+- vLLM-native entry-point registration and explicit next-process activation.
 
 Moving host platform, scheduler, model runner or offline calibration code into
 the plugin would violate this boundary.

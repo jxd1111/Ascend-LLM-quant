@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## vllm-ascend-quant-ext 0.4.1a2 - 2026-09-16
+
+- Make vLLM's native `vllm.general_plugins` entry point the sole runtime
+  integration surface.
+- Remove the experimental Extension Manager Bundle, manifest and adapter.
+- Pin admission to vLLM-HUST revision `6cff125127ba` and
+  vLLM-Ascend-HUST revision `203a33e677ac`.
+- Preserve default-off installation, fail-closed artifact admission, scheme
+  collision checks, rollback and isolated uninstall verification.
+
 ## vllm-ascend-quant-ext 0.4.1a1 - 2026-09-15
 
 - Prepare the first public PyPI alpha of the Runtime Extension.

@@ -1,43 +1,35 @@
 # Architecture and interface boundary
 
-## Toolkit
+## Offline Toolkit
 
-The root `ascend-quant-toolkit` distribution owns offline work only:
-
-1. calibration and recipe selection;
-2. ModelSlim invocation;
-3. conversion and artifact construction;
-4. runtime-contract and provenance export;
-5. PPL, accuracy, throughput and HBM evidence collection.
-
-It has no vLLM entry point. Importing or installing it cannot alter a serving
-process.
+The root `ascend-quant-toolkit` distribution owns calibration, ModelSlim
+conversion, artifact construction, contract export and evaluation evidence. It
+has no vLLM entry point and never runs in the serving process.
 
 ## Runtime extension
 
-`runtime-extension/` builds the independent `vllm-ascend-quant-ext` wheel. Its
-responsibilities are deliberately narrow:
+`runtime-extension/` builds the independent `vllm-ascend-quant-ext` wheel. It:
 
-1. identify `ascend_quant_artifact.json`;
-2. validate the closed contract and safetensors headers;
-3. enforce host/software/model/shape compatibility before implementation import;
-4. map the admitted runtime quant type to a typed vLLM-Ascend scheme;
-5. select only declared operators;
-6. fail closed when no compatible path exists.
+1. validates `ascend_quant_artifact.json` and all bound files;
+2. admits only the frozen vLLM-HUST/vLLM-Ascend-HUST revisions;
+3. registers `ASCEND_QUANT_W8A8` through vLLM's native
+   `vllm.general_plugins` callback;
+4. delegates implementation to the installed vLLM-Ascend W8A8 linear and MoE
+   schemes;
+5. fails closed on unknown format, shape, software or registration collision.
 
-The implementation uses `vllm_ascend.quantization.methods.register_scheme` and
-does not monkey patch scheduler, loader, model, or operator modules.
+The extension does not monkey patch the scheduler, loader, model or operator
+modules. vLLM owns the plugin process lifecycle. Installation is default-off;
+activation applies only to a newly started vLLM process.
 
-## Extension Manager
+## Frozen host
 
-The wheel contains a static 0.2-experimental manifest. Manager operations are
-pure discover/check/plan/render operations. They produce environment and plugin
-selection data but do not modify model files, install calibration assets, or
-import implementation modules during admission.
+The supported source pair is vLLM-HUST `6cff125127ba` and
+vLLM-Ascend-HUST `203a33e677ac`. Compatibility is intentionally not generalized
+to every release in the same numeric version family.
 
 ## Adaptive Quantized KV
 
-This repository owns model-weight quantization only. KV-cache storage formats,
-KV allocation, compression, eviction, request scheduling, and the
-`vllm-ascend-adaptive-quantized-kv-hust` package remain independent. There is no
-shared manifest, activation flag, lifecycle owner, or compatibility claim.
+KV-cache formats, allocation, compression, eviction and request scheduling are
+outside this repository. No manifest, activation flag or compatibility claim
+is shared with Adaptive Quantized KV.

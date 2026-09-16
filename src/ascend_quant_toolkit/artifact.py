@@ -347,8 +347,8 @@ def build_runtime_contract(
 ) -> dict[str, Any]:
     """Build the immutable Toolkit-to-Runtime artifact contract.
 
-    This function is part of offline artifact generation. Runtime and Manager
-    code only read the resulting file.
+    This function is part of offline artifact generation. Runtime code only
+    reads the resulting file.
     """
 
     inspection = inspect_artifact(model_path)
@@ -541,8 +541,8 @@ def build_runtime_contract(
         "software": {
             "cann": ">=8.5,<8.6",
             "torch_npu": ">=2.9,<2.10",
-            "vllm": ">=0.17.2.post2.dev27,<0.18",
-            "vllm_ascend": ">=0.1.dev2790,<0.2",
+            "vllm": "==0.17.2.post2.dev1080",
+            "vllm_ascend": "==0.1.dev2798",
         },
         "files": file_contract,
         "evidence": {

@@ -1,50 +1,21 @@
 # 文档导航
 
-本目录记录 Ascend 模型权重与激活量化的现状分析、运行时插件设计、
-Extension Manager 对接边界和验证证据。离线 Toolkit 与 Runtime Extension
-是两个独立的 Python Distribution；Adaptive Quantized KV 不在本项目范围内。
+本仓库将离线 Toolkit 与运行时插件作为两个独立 Python Distribution。
 
-## 建议阅读顺序
-
-| 顺序 | 文档 | 用途 |
-|---:|---|---|
-| 1 | [中文设计概览](design-overview.zh-CN.md) | 快速理解目标、边界、W8A8 和当前状态 |
-| 2 | [当前量化架构](current-vllm-ascend-quant-architecture.md) | 了解 vLLM-HUST/vLLM-Ascend 的代码流程、接口和算法 |
-| 3 | [Runtime Extension 设计](runtime-plugin-design.md) | 查看插件输入、输出、注册方式和启动模式 |
-| 4 | [Extension Manager 对接](extension-manager-handoff.md) | 查看 discover/check/plan/render 的交接契约 |
-| 5 | [Artifact Contract](../contracts/README.md) | 查看产物格式、版本和 fail-closed 规则 |
-| 6 | [验收矩阵](acceptance-matrix.md) | 查看正确性、精度、性能、HBM 和回滚门槛 |
-| 7 | [W8A8 证据](w8a8-evidence.md) | 查看当前可追溯的 NPU E2E、PPL 和 ShareGPT 记录 |
-| 8 | [后续路线图](runtime-plugin-roadmap.md) | 查看依赖项、优先级和开放问题 |
-| 9 | [打包发布指南](runtime-extension-packaging-and-release.zh-CN.md) | 构建、隔离安装、发现、卸载与发布流程 |
-| 10 | [W8A8 Runtime 0.4.0 验证记录](validation-w8a8-v0.4.0-20260910.md) | 查看历史版本的 NPU 正向、禁用对照和原生恢复结果 |
-| 11 | [Artifact Contract 1.1 迁移](artifact-contract-v1.1-migration.md) | 将旧产物升级为绑定全部模型文件哈希的新契约 |
-
-## 架构决策
-
-- [ADR 0001：Runtime Quantization Plugin 边界](adr/0001-runtime-plugin-boundary.md)
-
-后续经 vLLM-Ascend 或 Extension Manager 团队确认的接口决策，应新增 ADR，
-而不是只保留在 Issue、聊天记录或实现代码中。
-
-## 当前完成度
-
-| 能力 | 状态 |
+| 文档 | 内容 |
 |---|---|
-| W8A8 离线 Recipe | 已实现 |
-| 版本化 Artifact Contract | 已实现 |
-| Runtime Extension 独立 wheel | 已实现 |
-| 默认禁用及 fail-closed admission | 已实现 |
-| Qwen2.5-14B Ascend NPU E2E | 已验证 |
-| Extension Manager 正式 materializer | 待框架团队确认 |
-| vLLM-Ascend 公共 Scheme SPI | 待框架团队确认 |
-| BF16/W8A8 matched benchmark 与 HBM | 待补齐 |
-| W4A4/W4A8 硬件验证 | 未完成 |
+| [架构边界](architecture.md) | Toolkit、Runtime Extension 和 KV 能力边界 |
+| [现有量化架构](current-vllm-ascend-quant-architecture.md) | 冻结宿主源码、模块输入输出和调用链 |
+| [运行时插件设计](runtime-plugin-design.md) | vLLM 原生入口、输入输出、启动和回退 |
+| [Artifact Contract](../contracts/README.md) | 格式、软件、张量和 fail-closed 规则 |
+| [验收矩阵](acceptance-matrix.md) | 正确性、精度、性能、HBM 和回退门槛 |
+| [W8A8 证据](w8a8-evidence.md) | NPU E2E、PPL 和 ShareGPT 记录 |
+| [打包发布指南](runtime-extension-packaging-and-release.zh-CN.md) | wheel/sdist、干净安装和 PyPI 发布 |
+| [发布清单](release-checklist.md) | 每个不可覆盖版本的发布门禁 |
+| [0.4.1a2 NPU 验证](validation-w8a8-v0.4.1a2-20260916.md) | 原生 vLLM 插件路径端到端记录 |
 
-## 评审入口
+当前已验证 Qwen2.5-14B W8A8 在冻结 Ascend 宿主上的加载和确定性推理。
+BF16/W8A8 matched benchmark 与持续 HBM 采样仍应作为独立证据补齐。
 
-- [Design Issue #1](https://github.com/jxd1111/Ascend-LLM-quant/issues/1)
-- [Release Checklist](release-checklist.md)
-
-状态标记必须以仓库中的可复现证据为准。本地服务器路径不能作为外部评审者
-可访问的公开证据；对外发布前应提交脱敏后的命令、环境信息和结构化 Evidence。
+历史验证文档保留当时版本的真实结构；其中出现的实验性 Manager Bundle
+只代表旧版本，不是当前插件接口。

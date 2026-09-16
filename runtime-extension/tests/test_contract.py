@@ -7,10 +7,11 @@ import pytest
 
 from vllm_ascend_quant_ext.contract import (
     ContractError,
+    _check_frozen_revision,
     _installed_version,
     validate_artifact,
 )
-from vllm_ascend_quant_ext.manager import plan, provider, render
+from vllm_ascend_quant_ext.plugin import plan, render
 
 
 def write_safetensors(path: Path, tensors: dict[str, tuple[str, list[int]]]) -> None:
@@ -147,8 +148,8 @@ def make_artifact(path: Path) -> dict:
         "software": {
             "cann": ">=8.5,<8.6",
             "torch_npu": ">=2.9,<2.10",
-            "vllm": ">=0.17,<0.18",
-            "vllm_ascend": ">=0.1.dev2790,<0.2",
+            "vllm": "==0.17.2.post2.dev1080",
+            "vllm_ascend": "==0.1.dev2798",
         },
         "files": {},
         "evidence": {"level": "schema_only", "verified_profiles": [], "results": []},
@@ -525,49 +526,14 @@ def test_missing_cann_fails_closed(tmp_path: Path, monkeypatch):
 def test_plan_and_render_are_read_only(tmp_path: Path, monkeypatch):
     make_artifact(tmp_path)
     monkeypatch.setattr(
-        "vllm_ascend_quant_ext.manager.validate_artifact", lambda path: {"valid": True}
+        "vllm_ascend_quant_ext.plugin.validate_artifact", lambda path: {"valid": True}
     )
     before = {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()}
     assert plan(tmp_path)["mutates_model"] is False
     assert render(tmp_path)["environment"]["VLLM_ASCEND_QUANT_EXT_ENABLE"] == "1"
+    assert "VLLM_PLUGINS" not in render(tmp_path)["environment"]
     after = {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()}
     assert before == after
-
-
-def test_manager_adapter_disabled_render_removes_only_extension_state():
-    rendered = provider.render({"enabled": False, "model": "/unused"})
-    assert rendered["environment_set"] == {}
-    assert set(rendered["environment_unset"]) == {
-        "VLLM_ASCEND_QUANT_EXT_ENABLE",
-        "VLLM_ASCEND_QUANT_EXT_ARTIFACT",
-    }
-    assert rendered["vllm_plugins_remove"] == ["vllm_ascend_quant"]
-    assert "ascend" not in rendered["vllm_plugins_remove"]
-
-
-def test_manager_adapter_enabled_check_is_import_only(tmp_path: Path, monkeypatch):
-    make_artifact(tmp_path)
-    monkeypatch.setattr(
-        "vllm_ascend_quant_ext.manager.validate_artifact", lambda path: {"valid": True}
-    )
-    before = {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()}
-    checked = provider.check({"enabled": True, "model": str(tmp_path)})
-    assert checked["admitted"] is False
-    assert checked["enable_allowed"] is False
-    assert "import_only" in checked["reason"]
-    assert {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()} == before
-
-
-def test_manager_adapter_refuses_enabled_plan_and_render(tmp_path: Path, monkeypatch):
-    make_artifact(tmp_path)
-    monkeypatch.setattr(
-        "vllm_ascend_quant_ext.manager.validate_artifact", lambda path: {"valid": True}
-    )
-    configuration = {"enabled": True, "model": str(tmp_path)}
-    with pytest.raises(RuntimeError, match="import_only"):
-        provider.plan(configuration)
-    with pytest.raises(RuntimeError, match="import_only"):
-        provider.render(configuration)
 
 
 class FakeDistribution:
@@ -597,3 +563,17 @@ def test_conflicting_installed_versions_fail_closed(monkeypatch):
     )
     with pytest.raises(ContractError, match="ambiguous installed package metadata"):
         _installed_version(("vllm-hust", "vllm"))
+
+
+def test_frozen_host_revisions_are_admitted():
+    assert _check_frozen_revision(
+        "vllm", "0.17.2.post2.dev1080+g6cff12512.d20260914"
+    ).startswith("0.17.2")
+    assert _check_frozen_revision(
+        "vllm_ascend", "0.1.dev2798+g203a33e67.d20260914"
+    ).startswith("0.1")
+
+
+def test_non_frozen_host_revision_fails_closed():
+    with pytest.raises(ContractError, match="required g6cff12512"):
+        _check_frozen_revision("vllm", "0.17.2.post2.dev1081+gdeadbeef")

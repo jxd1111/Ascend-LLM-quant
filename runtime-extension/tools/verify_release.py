@@ -50,9 +50,6 @@ def _check_wheel(wheel: Path) -> None:
         names = set(archive.namelist())
     suffixes = {
         "vllm_ascend_quant_ext/_version.py",
-        "vllm_ascend_quant_ext/manifests/__init__.py",
-        MANIFEST,
-        "vllm_ascend_quant_ext/adapters/vllm_hust/runtime.py",
         "vllm_ascend_quant_ext/schemes/w8a8.py",
         ".dist-info/entry_points.txt",
     }
@@ -63,14 +60,16 @@ def _check_wheel(wheel: Path) -> None:
         raise RuntimeError("wheel contains the retired legacy extension manifest")
     if any(name.endswith(RETIRED_SCHEME) for name in names):
         raise RuntimeError("wheel contains the retired PDMix-named scheme module")
+    if any(name.endswith(MANIFEST) for name in names):
+        raise RuntimeError("wheel contains a retired Extension Manager manifest")
 
     with zipfile.ZipFile(wheel) as archive:
         entry_name = next(
             name for name in archive.namelist() if name.endswith(".dist-info/entry_points.txt")
         )
         entries = archive.read(entry_name).decode("utf-8")
-    if f"[{BUNDLE_GROUP}]" not in entries or f"{BUNDLE_ID} = vllm_ascend_quant_ext.manifests" not in entries:
-        raise RuntimeError("wheel does not declare the Extension Bundle entry point")
+    if f"[{BUNDLE_GROUP}]" in entries or BUNDLE_ID in entries:
+        raise RuntimeError("wheel still declares the retired Extension Manager entry point")
     if f"[{ENTRY_GROUP}]" not in entries or f"{ENTRY_NAME} = vllm_ascend_quant_ext.plugin:register" not in entries:
         raise RuntimeError("wheel does not declare the vLLM runtime activation entry point")
 
@@ -81,8 +80,8 @@ def _check_sdist(sdist: Path) -> None:
     suffixes = {
         "pyproject.toml",
         "src/vllm_ascend_quant_ext/_version.py",
-        f"src/{MANIFEST}",
-        "src/vllm_ascend_quant_ext/adapters/vllm_hust/runtime.py",
+        "src/vllm_ascend_quant_ext/plugin.py",
+        "src/vllm_ascend_quant_ext/schemes/w8a8.py",
     }
     missing = [suffix for suffix in suffixes if not any(name.endswith(suffix) for name in names)]
     if missing:
@@ -91,6 +90,8 @@ def _check_sdist(sdist: Path) -> None:
         raise RuntimeError("sdist contains the retired legacy extension manifest")
     if any(name.endswith(RETIRED_SCHEME) for name in names):
         raise RuntimeError("sdist contains the retired PDMix-named scheme module")
+    if any(name.endswith(MANIFEST) for name in names):
+        raise RuntimeError("sdist contains a retired Extension Manager manifest")
 
 
 def main() -> int:
@@ -113,26 +114,18 @@ def main() -> int:
         pip = env_dir / "bin/pip"
         _run(str(pip), "install", "--no-deps", str(wheel))
         probe = r'''
-import json
 import sys
 from importlib.metadata import entry_points, version
-from importlib.resources import files
 
-package_manifest = files("vllm_ascend_quant_ext.manifests").joinpath("vllm-hust-extension-v0.2.json")
-manifest = json.loads(package_manifest.read_text(encoding="utf-8"))
 points = [ep for ep in entry_points(group="vllm.general_plugins") if ep.name == "vllm_ascend_quant"]
 bundles = [ep for ep in entry_points(group="vllm_hust.extension_bundles") if ep.name == "org.vllm-hust.ascend-quant-runtime"]
-assert manifest["extension_id"] == "org.vllm-hust.ascend-quant-runtime"
-assert manifest["extension_version"] == version("vllm-ascend-quant-ext")
-assert manifest["implementation"][0]["status"] == "import_only"
+assert version("vllm-ascend-quant-ext")
 assert len(points) == 1
-assert len(bundles) == 1
-assert bundles[0].value == "vllm_ascend_quant_ext.manifests"
-assert manifest["activation"] == {"entry_points": [], "environment": {}, "additional_config": {}}
+assert len(bundles) == 0
 assert "torch" not in sys.modules
 assert "vllm" not in sys.modules
 assert "vllm_ascend" not in sys.modules
-print(json.dumps({"manifest": str(package_manifest), "runtime_entry_point": points[0].value, "bundle_entry_point": bundles[0].value}))
+print(points[0].value)
 '''
         print(_run(str(python), "-c", probe).strip())
         _run(str(pip), "uninstall", "-y", DIST_NAME)

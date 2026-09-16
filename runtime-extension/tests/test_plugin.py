@@ -25,10 +25,8 @@ def test_invalid_artifact_fails_before_runtime_import(monkeypatch, tmp_path: Pat
         register()
 
 
-def test_status_exposes_bundle_and_runtime_entry_points():
+def test_status_exposes_native_vllm_entry_point_and_frozen_host():
     report = status()
     assert report["entry_point"] == "vllm.general_plugins/vllm_ascend_quant"
-    assert report["bundle_entry_point"] == (
-        "vllm_hust.extension_bundles/"
-        "org.vllm-hust.ascend-quant-runtime"
-    )
+    assert "6cff125127ba" in report["host"]
+    assert "203a33e677ac" in report["host"]

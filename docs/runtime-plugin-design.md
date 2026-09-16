@@ -1,236 +1,89 @@
-# Ascend model quantization runtime plugin design
+# W8A8 Runtime Plugin Design
 
-Status: design baseline for review before the next implementation phase.
+## Goal
 
-## Goals
+`vllm-ascend-quant-ext` is a bounded, in-process plugin for W8A8 model
+artifacts. It extends one behavior: after explicit admission, it registers the
+extension-owned `ASCEND_QUANT_W8A8` scheme name with the frozen
+vLLM-Ascend-HUST scheme registry.
 
-1. Package model weight/activation runtime support independently from the
-   offline Toolkit and vLLM-Ascend release cadence.
-2. Admit only versioned, compatible artifacts and fail before model loading.
-3. Register schemes through typed public host interfaces without monkey patch.
-4. Keep installation inert; activation must be explicit and reversible.
-5. Make W8A8 the first verified profile while reserving contract space for
-   W4A4/W4A8 without claiming they are verified.
+It is not a vLLM fork, an Extension Manager Bundle, a conversion toolkit or a
+KV-cache plugin.
 
-## Non-goals
+## Host contract
 
-- calibration, GPTQ, SmoothQuant, conversion or dataset handling in vLLM;
-- KV-cache quantization, compression, allocation or request scheduling;
-- ownership of vLLM model runner, NPU platform or CANN operators;
-- silently replacing built-in `ascend` schemes;
-- automatic fallback that changes numerical behavior without reporting it.
-
-## Components
+The plugin is discovered through:
 
 ```text
-Extension Manager
-  -> vllm_hust.extension_bundles static manifest discovery
-  -> QuantRuntimeProvider.check/plan/render
-       -> ArtifactReader + ContractValidator
-       -> CapabilityMatcher
-       -> RuntimePlan
-  -> start model worker with explicit activation
-       -> plugin register()
-       -> repeat artifact admission
-       -> SchemeProvider.register(host_registry)
-       -> vLLM-Ascend creates/loads/applies the selected scheme
+group:  vllm.general_plugins
+name:   vllm_ascend_quant
+target: vllm_ascend_quant_ext.plugin:register
 ```
 
-The Manager check and worker admission intentionally duplicate validation. The
-first produces an operator-visible plan; the second protects against changed
-files or environment between planning and process start.
-
-## Public plugin input
-
-### Manager configuration
-
-```json
-{
-  "enabled": true,
-  "model": "/absolute/path/to/artifact"
-}
-```
-
-This remains closed: unknown or missing keys fail. The final Manager schema may
-wrap this object, but the typed host provider must map to it deterministically.
-
-### Artifact input
-
-Required files:
+Supported host:
 
 ```text
-config.json
-quant_model_description.json
-ascend_quant_artifact.json
-one or more declared *.safetensors shards
+vLLM-HUST        6cff125127bac512488dc90a9812dcafddb65298
+vLLM-Ascend-HUST 203a33e677ac6728108473e749069244bea00373
+torch            2.9.0
+torch-npu        2.9.0
+CANN             >=8.5,<8.6
 ```
 
-The contract supplies model identity, logical shapes, scheme, weight layout,
-scale/zero-point semantics, runtime quant type, required operators, software
-ranges and evidence level.
+No compatibility is claimed for other revisions. The embedded Git revision
+tokens are checked in addition to numeric package requirements.
 
-### Runtime capability input
+## Inputs
 
-The host provider must supply or make discoverable:
+Activation inputs are three environment variables:
 
 ```text
-host/provider API version
-CANN version
-torch-npu version and required operator availability
-vLLM and vLLM-Ascend versions
-model dtype and architecture
-TP/EP configuration
-execution_role = standalone | kv_producer | kv_consumer
+VLLM_ASCEND_QUANT_EXT_ENABLE=1
+VLLM_ASCEND_QUANT_EXT_ARTIFACT=/absolute/model/path
 ```
 
-The artifact declares `quantization.scheme: W8A8`. `execution_role` is a host
-runtime input that selects the appropriate W8A8 execution path. It does not
-authorize KV-cache quantization and is independent of the Adaptive Quantized KV
-extension.
+The model directory must contain contract 1.1, ModelSlim description, config,
+indexes and weight shards matching the declared size, hash, dtype and shape.
+Unknown fields and undeclared files fail closed.
 
-### Layer input
+The frozen host automatically discovers installed general plugins. Do not set
+`VLLM_PLUGINS` to only this plugin: it filters every plugin group and would
+suppress required Ascend platform/general entry points. Operators that already
+maintain an allowlist must include the complete frozen-host plugin set.
+
+## Outputs and effects
+
+Successful registration adds at most two registry entries:
 
 ```text
-layer_type: linear | moe
-prefix: stable logical layer name
-input_size K, output_size N
-partition sizes and TP rank
-parameter dtype
-runtime activation x [..., K]
-optional bias [N]
+(ASCEND_QUANT_W8A8, linear)
+(ASCEND_QUANT_W8A8, moe)
 ```
 
-## Public plugin output
+Both are namespaced aliases of the frozen host implementation. Existing
+foreign registrations are rejected; repeated registration by the same plugin
+is idempotent. No model file is written.
 
-### Admission report
+## Lifecycle
 
-```json
-{
-  "admitted": true,
-  "artifact_id": "...",
-  "scheme": "W8A8",
-  "runtime_quant_type": "ASCEND_QUANT_W8A8",
-  "required_operators": ["torch_npu.npu_dynamic_quant", "torch_npu.npu_quant_matmul"],
-  "implementation_imported": false
-}
-```
+1. `pip install` records the entry point but changes no serving behavior.
+2. vLLM discovers the entry point in each process.
+3. Without the explicit enable flag, `register()` returns without imports or
+   device access.
+4. When enabled, the plugin validates the artifact and software first.
+5. Only then does it import vLLM-Ascend and register the W8A8 aliases.
+6. Disable applies to a newly started process; hot unload is not promised.
+7. Uninstall removes the entry point but never rewrites the model.
 
-Failures are structured and terminal: unsupported schema/model/shape/layout,
-missing tensor, dtype/scale mismatch, incompatible software, unavailable
-operator or duplicate scheme registration.
+## Failure policy
 
-### Runtime plan
+Missing activation input, incompatible host revision, CANN/torch-npu mismatch,
+invalid artifact, absent host scheme or registration collision aborts startup.
+There is no silent fallback from `ASCEND_QUANT_W8A8` to BF16 or another
+quantization method.
 
-The render result contains environment additions/removals, plugin additions and
-the admitted immutable artifact identity. It never contains a command that
-modifies the model.
+## Security and data boundary
 
-### Scheme registration
-
-The current extension registers only the namespaced W8A8 aliases:
-
-```text
-ASCEND_QUANT_W8A8/linear
-ASCEND_QUANT_W8A8/moe
-```
-
-They subclass the native vLLM-Ascend `W8A8_MIX` implementations instead of
-copying or forking their algorithm code. The extension does not register or
-overwrite host-owned keys such as `W8A8`, `W8A8_DYNAMIC` or `W8A8_MIX`.
-
-### Extension Bundle identity
-
-The `0.2-experimental` packaging prototype uses the following provisional
-identifiers pending framework-team confirmation:
-
-```text
-Bundle ID:          org.vllm-hust.ascend-quant-runtime
-Component ID:       ascend-quant-artifact-validator
-Full component ID:  org.vllm-hust.ascend-quant-runtime/ascend-quant-artifact-validator
-Contract:           vllm.ascend.quantized-artifact-loader.v1
-Execution planes:   worker, device
-Status:             import_only
-```
-
-The Bundle is discovered through `vllm_hust.extension_bundles`. The existing
-`vllm.general_plugins/vllm_ascend_quant` entry point is retained only for direct
-diagnostics; it is not selected by Bundle activation and is not the Bundle
-discovery mechanism.
-
-### Tensor output
-
-For linear input `x [...,K]`, the scheme returns `y [...,N]` in the declared
-model output dtype. Parameter-specification calls return named tensors plus
-layout/partition metadata; post-load processing produces the exact runtime
-layout required by the admitted operator.
-
-## W8A8 algorithm policy
-
-| Mode | Activation policy | Weight policy | Operator path |
-|---|---|---|---|
-| static | offline per-tensor activation scale/offset | offline INT8 per-channel | vLLM quantize + NPU quant matmul |
-| dynamic | runtime per-token scale | offline INT8 per-channel | NPU dynamic quant + NPU quant matmul |
-| validated W8A8 profile | static for `kv_consumer`, dynamic otherwise | offline INT8 parameters | selected using the independent `execution_role` input |
-
-A standalone service therefore uses the dynamic runtime path while the artifact
-remains identified simply as W8A8.
-
-The selected W8A8 algorithm, operator rounding/saturation and physical FRACTAL_NZ
-layout remain host-owned contracts. The plugin validates the artifact and
-provides a namespaced alias; it does not fork or emulate the host algorithm.
-
-## Startup modes
-
-### Disabled/default
-
-Installing the wheel registers metadata but changes no serving behavior.
-No artifact is inspected and no W8A8 implementation module is imported.
-
-### Manager-managed mode (currently import-only)
-
-```text
-install -> discover -> validate -> configure -> check
--> enabled plan/render refused until Host protocols are approved
-```
-
-This is the intended production target, not a current activation claim.
-
-### Direct diagnostic mode
-
-Environment variables may activate the plugin for development/E2E tests. This
-mode is not evidence of Extension Manager integration and must be documented as
-diagnostic only.
-
-## Safety and rollback
-
-- all artifact reads are read-only;
-- check happens before implementation imports;
-- unknown contract fields fail closed;
-- no silent BF16 fallback for a declared quantized layer;
-- disable removes only this extension's variables and plugin selection;
-- uninstall removes registration without touching artifacts;
-- the original ModelSlim/vLLM-Ascend path is restored only by the Toolkit's
-  explicit, fail-closed `restore-modelslim` operation; uninstall is not a
-  metadata migration.
-
-## Host API required before full extraction
-
-The framework team must freeze:
-
-1. manifest schema and discovery path;
-2. typed quantized-artifact loader and operator-selection protocols;
-3. stable scheme registry and duplicate-registration behavior;
-4. stable parameter-spec and post-load interfaces;
-5. runtime capability descriptor, including execution role;
-6. error/result schemas for check/plan/render.
-
-Until those interfaces are accepted, the plugin remains integration-ready but
-must not copy more vLLM-Ascend internals into its own package.
-
-## Versioning
-
-- artifact contract: semantic version, fail on unsupported major;
-- Manager adapter: independent API version;
-- runtime scheme IDs: namespaced and immutable once published;
-- wheel: semantic version with explicit compatible host ranges;
-- any packing/layout change requires a new contract/scheme version.
+The plugin reads only the configured model directory and local distribution /
+CANN metadata. It does not require network access, subprocesses, writable model
+storage or prompt/token logging.
