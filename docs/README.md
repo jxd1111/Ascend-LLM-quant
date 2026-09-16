@@ -13,9 +13,10 @@
 | [打包发布指南](runtime-extension-packaging-and-release.zh-CN.md) | wheel/sdist、干净安装和 PyPI 发布 |
 | [发布清单](release-checklist.md) | 每个不可覆盖版本的发布门禁 |
 | [0.4.1a2 NPU 验证](validation-w8a8-v0.4.1a2-20260916.md) | 原生 vLLM 插件路径端到端记录 |
+| [v1 适配状态](validation-w8a8-v1-readiness-20260916.md) | 冻结 ref、Ascend 来源链、静态验证与待完成 NPU 门禁 |
 
-当前已验证 Qwen2.5-14B W8A8 在冻结 Ascend 宿主上的加载和确定性推理。
-BF16/W8A8 matched benchmark 与持续 HBM 采样仍应作为独立证据补齐。
+Qwen2.5-14B W8A8 已在旧冻结宿主上完成加载和确定性推理验证。新的
+vLLM-HUST `v1` 组合仍需单独完成 NPU E2E，不能继承旧结果。
 
 历史验证文档保留当时版本的真实结构；其中出现的实验性 Manager Bundle
 只代表旧版本，不是当前插件接口。

@@ -65,7 +65,7 @@ def status() -> dict[str, object]:
         "enable_environment_variable": ENABLE_ENV,
         "artifact_environment_variable": ARTIFACT_ENV,
         "entry_point": "vllm.general_plugins/vllm_ascend_quant",
-        "host": "vllm-hust@6cff125127ba + vllm-ascend-hust@203a33e677ac",
+        "host": "vllm-hust@v1/f18cf803c5 + vllm-ascend-hust@74f0c0a27",
     }
 
 

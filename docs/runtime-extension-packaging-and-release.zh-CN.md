@@ -31,10 +31,10 @@ python runtime-extension/tools/verify_release.py \
 ## 正式发布
 
 仓库使用 GitHub Actions + PyPI Trusted Publisher，不手工保存或上传 token。
-版本 `0.4.1a2` 对应 Tag：
+版本 `0.4.1a3` 对应 Tag：
 
 ```text
-runtime-v0.4.1a2
+runtime-v0.4.1a3
 ```
 
 发布顺序：

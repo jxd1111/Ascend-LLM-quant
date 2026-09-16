@@ -202,7 +202,9 @@ def test_runtime_contract_records_closed_w8a8_format(tmp_path: Path):
     assert contract["schema_version"] == "1.1.0"
     assert contract["quantization"]["weight"]["packing"] == "none"
     assert contract["quantization"]["zero_point"]["semantics"] == "additive_offset_before_scale"
-    assert contract["software"]["cann"] == ">=8.5,<8.6"
+    assert contract["software"]["cann"] == ">=9.1,<9.2"
+    assert contract["software"]["torch_npu"] == ">=2.13.0rc1,<2.14"
+    assert contract["software"]["vllm"] == ">=0.28.1rc0,<0.29"
     assert contract["evidence"]["verified_profiles"] == ["W8A8"]
     assert contract["files"]["config"]["name"] == "config.json"
     assert len(contract["files"]["config"]["sha256"]) == 64

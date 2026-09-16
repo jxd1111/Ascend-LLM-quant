@@ -6,14 +6,14 @@ or benchmark orchestration.
 
 ## Supported host baseline
 
-This alpha intentionally supports one tested source pair:
+This alpha targets the frozen `v1` release baseline:
 
 | Component | Frozen revision |
 |---|---|
-| vLLM-HUST | `6cff125127bac512488dc90a9812dcafddb65298` |
-| vLLM-Ascend-HUST | `203a33e677ac6728108473e749069244bea00373` |
-| torch / torch-npu | `2.9.0` |
-| CANN | `>=8.5,<8.6` |
+| vLLM-HUST | ref `v1`, commit `f18cf803c5f63625e2c71253ddaf8b0bad0bad1a` |
+| vLLM-Ascend-HUST | commit `74f0c0a272376412b51e1c1864803d5f3a0f1b5f` |
+| torch / torch-npu | `2.13.0` / `2.13.0rc1` |
+| CANN | `>=9.1,<9.2` |
 
 Admission checks both the declared package version and the Git revision token
 embedded in the installed vLLM distributions. Unknown revisions fail closed.
@@ -38,7 +38,7 @@ idempotent and remains disabled unless explicitly enabled.
 ## Install and inspect
 
 ```bash
-python -m pip install vllm-ascend-quant-ext==0.4.1a2
+python -m pip install vllm-ascend-quant-ext==0.4.1a3
 
 vllm-ascend-quant-ext check --model /path/to/w8a8-model
 vllm-ascend-quant-ext status
@@ -81,5 +81,6 @@ model whose active metadata names `ASCEND_QUANT_W8A8` still requires the
 plugin; restoring native `W8A8_MIX` metadata is a separate offline Toolkit
 operation.
 
-This extension quantizes model weights and linear/MoE activations only. It does
+This extension loads model weights and registers the validated dense-linear
+W8A8 activation/weight path only. It does
 not own KV-cache format, allocation, compression or request scheduling.

@@ -7,12 +7,14 @@
 - default-off, idempotent W8A8 registration;
 - exact frozen-host revision admission;
 - isolated wheel/sdist install, discovery and uninstall checks;
-- real Ascend NPU startup, inference, disabled-path and native recovery tests;
+- real Ascend NPU startup, inference, disabled-path and native recovery tests
+  for the historical `0.4.1a2` host pair;
 - PyPI Trusted Publishing.
 
 ## Next evidence work
 
-1. Repeat NPU E2E for `0.4.1a2` built from the released wheel.
+1. Run NPU E2E for `0.4.1a3` on vLLM-HUST `v1` and the pinned Ascend
+   platform snapshot; do not reuse the `0.4.1a2` result as v1 evidence.
 2. Publish matched BF16/W8A8 throughput, TTFT, accuracy/PPL and HBM evidence.
 3. Add a clean frozen-host integration job when an authorized NPU runner is
    available; do not use an unmanaged self-hosted GitHub runner.

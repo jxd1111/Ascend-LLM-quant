@@ -312,8 +312,8 @@ def _check_version(label: str, installed: str | None, requirement: str) -> str:
 
 
 FROZEN_HOST_REVISIONS = {
-    "vllm": "g6cff12512",
-    "vllm_ascend": "g203a33e67",
+    "vllm": "gf18cf803c5",
+    "vllm_ascend": "g74f0c0a27",
 }
 
 
@@ -481,6 +481,12 @@ def _validate_structure(contract: Any) -> dict[str, Any]:
     if zero["semantics"] != "additive_offset_before_scale":
         raise ContractError("unsupported zero-point semantics")
     if quant["scheme"] == "W8A8":
+        if model["model_type"] != "qwen2" or model["architectures"] != [
+            "Qwen2ForCausalLM"
+        ]:
+            raise ContractError(
+                "W8A8 v1 baseline supports only qwen2/Qwen2ForCausalLM"
+            )
         if weight["granularity"] != "per_channel":
             raise ContractError("W8A8 v1.1 requires per-channel weights")
         if activation != {

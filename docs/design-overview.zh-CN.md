@@ -42,11 +42,11 @@ export VLLM_ASCEND_QUANT_EXT_ARTIFACT=/path/to/w8a8-model
 ## 冻结兼容基线
 
 ```text
-vLLM-HUST        6cff125127bac512488dc90a9812dcafddb65298
-vLLM-Ascend-HUST 203a33e677ac6728108473e749069244bea00373
-torch            2.9.0
-torch-npu        2.9.0
-CANN             >=8.5,<8.6
+vLLM-HUST        v1 / f18cf803c5f63625e2c71253ddaf8b0bad0bad1a
+vLLM-Ascend-HUST 74f0c0a272376412b51e1c1864803d5f3a0f1b5f
+torch            2.13.0
+torch-npu        2.13.0rc1
+CANN             >=9.1,<9.2
 ```
 
 插件同时检查发行包版本和版本字符串中的 Git revision。相同版本区间内的其他
@@ -62,11 +62,10 @@ CANN             >=8.5,<8.6
 - dtype、shape、packing、scale、zero-point 和所需算子；
 - 软件兼容声明与评测证据。
 
-成功输出是两个幂等 registry 映射：
+成功输出是一个幂等 registry 映射：
 
 ```text
 ASCEND_QUANT_W8A8/linear
-ASCEND_QUANT_W8A8/moe
 ```
 
 具体 W8A8 算法、权重加载、布局转换、并行通信和 NPU 算子仍由冻结的

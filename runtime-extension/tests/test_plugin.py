@@ -28,5 +28,5 @@ def test_invalid_artifact_fails_before_runtime_import(monkeypatch, tmp_path: Pat
 def test_status_exposes_native_vllm_entry_point_and_frozen_host():
     report = status()
     assert report["entry_point"] == "vllm.general_plugins/vllm_ascend_quant"
-    assert "6cff125127ba" in report["host"]
-    assert "203a33e677ac" in report["host"]
+    assert "v1/f18cf803c5" in report["host"]
+    assert "74f0c0a27" in report["host"]

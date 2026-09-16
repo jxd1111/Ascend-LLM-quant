@@ -539,10 +539,10 @@ def build_runtime_contract(
             "operators": profile["operators"],
         },
         "software": {
-            "cann": ">=8.5,<8.6",
-            "torch_npu": ">=2.9,<2.10",
-            "vllm": "==0.17.2.post2.dev1080",
-            "vllm_ascend": "==0.1.dev2798",
+            "cann": ">=9.1,<9.2",
+            "torch_npu": ">=2.13.0rc1,<2.14",
+            "vllm": ">=0.28.1rc0,<0.29",
+            "vllm_ascend": ">=0.25.1rc1,<0.29",
         },
         "files": file_contract,
         "evidence": {

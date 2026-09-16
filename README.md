@@ -13,15 +13,16 @@ quantization is also independent of Adaptive Quantized KV.
 
 ## Frozen runtime baseline
 
-The current alpha supports exactly the source pair used by the project:
+The current alpha targets the frozen `v1` release baseline and its closest
+documented Ascend platform snapshot:
 
 | Component | Supported revision/version |
 |---|---|
-| vLLM-HUST | `6cff125127bac512488dc90a9812dcafddb65298` |
-| vLLM-Ascend-HUST | `203a33e677ac6728108473e749069244bea00373` |
-| torch | `2.9.0` |
-| torch-npu | `2.9.0` |
-| CANN | `>=8.5,<8.6` |
+| vLLM-HUST | ref `v1`, commit `f18cf803c5f63625e2c71253ddaf8b0bad0bad1a` |
+| vLLM-Ascend-HUST | commit `74f0c0a272376412b51e1c1864803d5f3a0f1b5f` |
+| torch | `2.13.0` |
+| torch-npu | `2.13.0rc1` |
+| CANN | `>=9.1,<9.2` |
 
 The plugin intentionally fails closed for a different vLLM/vLLM-Ascend Git
 revision, even if its numeric package version appears compatible.
@@ -51,7 +52,7 @@ SHA-256. It is validation metadata; it does not rewrite weight tensors.
 Install the independent distribution:
 
 ```bash
-python -m pip install vllm-ascend-quant-ext==0.4.1a2
+python -m pip install vllm-ascend-quant-ext==0.4.1a3
 vllm-ascend-quant-ext check --model /path/to/w8a8-model
 ```
 
@@ -78,7 +79,7 @@ vllm.general_plugins/vllm_ascend_quant
 
 It does not expose an Extension Manager Bundle and does not modify vLLM or
 vLLM-Ascend source. The plugin validates the artifact and frozen host first,
-then registers the namespaced `ASCEND_QUANT_W8A8` linear/MoE schemes by
+then registers the namespaced `ASCEND_QUANT_W8A8` linear scheme by
 delegating to the host's selected W8A8 implementation.
 
 Installation alone has no runtime effect. The callback is idempotent and

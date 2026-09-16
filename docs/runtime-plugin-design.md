@@ -23,11 +23,11 @@ target: vllm_ascend_quant_ext.plugin:register
 Supported host:
 
 ```text
-vLLM-HUST        6cff125127bac512488dc90a9812dcafddb65298
-vLLM-Ascend-HUST 203a33e677ac6728108473e749069244bea00373
-torch            2.9.0
-torch-npu        2.9.0
-CANN             >=8.5,<8.6
+vLLM-HUST        v1 / f18cf803c5f63625e2c71253ddaf8b0bad0bad1a
+vLLM-Ascend-HUST 74f0c0a272376412b51e1c1864803d5f3a0f1b5f
+torch            2.13.0
+torch-npu        2.13.0rc1
+CANN             >=9.1,<9.2
 ```
 
 No compatibility is claimed for other revisions. The embedded Git revision
@@ -44,7 +44,9 @@ VLLM_ASCEND_QUANT_EXT_ARTIFACT=/absolute/model/path
 
 The model directory must contain contract 1.1, ModelSlim description, config,
 indexes and weight shards matching the declared size, hash, dtype and shape.
-Unknown fields and undeclared files fail closed.
+The current verified model contract is restricted to dense
+`qwen2/Qwen2ForCausalLM` artifacts. Unknown fields, other model families and
+undeclared files fail closed.
 
 The frozen host automatically discovers installed general plugins. Do not set
 `VLLM_PLUGINS` to only this plugin: it filters every plugin group and would
@@ -53,14 +55,13 @@ maintain an allowlist must include the complete frozen-host plugin set.
 
 ## Outputs and effects
 
-Successful registration adds at most two registry entries:
+Successful registration adds one registry entry:
 
 ```text
 (ASCEND_QUANT_W8A8, linear)
-(ASCEND_QUANT_W8A8, moe)
 ```
 
-Both are namespaced aliases of the frozen host implementation. Existing
+It is a namespaced alias of the frozen host implementation. Existing
 foreign registrations are rejected; repeated registration by the same plugin
 is idempotent. No model file is written.
 

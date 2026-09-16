@@ -146,10 +146,10 @@ def make_artifact(path: Path) -> dict:
             "operators": ["torch_npu.npu_dynamic_quant", "torch_npu.npu_quant_matmul"],
         },
         "software": {
-            "cann": ">=8.5,<8.6",
-            "torch_npu": ">=2.9,<2.10",
-            "vllm": "==0.17.2.post2.dev1080",
-            "vllm_ascend": "==0.1.dev2798",
+            "cann": ">=9.1,<9.2",
+            "torch_npu": ">=2.13.0rc1,<2.14",
+            "vllm": ">=0.28.1rc0,<0.29",
+            "vllm_ascend": ">=0.25.1rc1,<0.29",
         },
         "files": {},
         "evidence": {"level": "schema_only", "verified_profiles": [], "results": []},
@@ -494,7 +494,24 @@ def test_model_mismatch_fails_closed(tmp_path: Path):
     contract["model"]["model_type"] = "unsupported"
     refresh_file_contract(tmp_path, contract)
     (tmp_path / "ascend_quant_artifact.json").write_text(json.dumps(contract))
-    with pytest.raises(ContractError, match="model_type"):
+    with pytest.raises(ContractError, match="supports only qwen2"):
+        validate_artifact(tmp_path, check_software=False)
+
+
+def test_unverified_model_fails_closed_even_when_config_matches(tmp_path: Path):
+    contract = make_artifact(tmp_path)
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {"model_type": "qwen3", "architectures": ["Qwen3ForCausalLM"]}
+        )
+    )
+    contract["model"].update(
+        {"model_type": "qwen3", "architectures": ["Qwen3ForCausalLM"]}
+    )
+    refresh_file_contract(tmp_path, contract)
+    (tmp_path / "ascend_quant_artifact.json").write_text(json.dumps(contract))
+    with pytest.raises(ContractError, match="supports only qwen2"):
         validate_artifact(tmp_path, check_software=False)
 
 
@@ -567,13 +584,13 @@ def test_conflicting_installed_versions_fail_closed(monkeypatch):
 
 def test_frozen_host_revisions_are_admitted():
     assert _check_frozen_revision(
-        "vllm", "0.17.2.post2.dev1080+g6cff12512.d20260914"
-    ).startswith("0.17.2")
+        "vllm", "0.28.1.post1.dev143+gf18cf803c5"
+    ).startswith("0.28.1")
     assert _check_frozen_revision(
-        "vllm_ascend", "0.1.dev2798+g203a33e67.d20260914"
-    ).startswith("0.1")
+        "vllm_ascend", "0.25.1rc1.post125+g74f0c0a27"
+    ).startswith("0.25.1")
 
 
 def test_non_frozen_host_revision_fails_closed():
-    with pytest.raises(ContractError, match="required g6cff12512"):
-        _check_frozen_revision("vllm", "0.17.2.post2.dev1081+gdeadbeef")
+    with pytest.raises(ContractError, match="required gf18cf803c5"):
+        _check_frozen_revision("vllm", "0.28.1.post1.dev144+gdeadbeef")
