@@ -1,3 +1,3 @@
 """Single source of truth for the runtime-extension release version."""
 
-__version__ = "0.4.1a1"
+__version__ = "0.4.1a3"

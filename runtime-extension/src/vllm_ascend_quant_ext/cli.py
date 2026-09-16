@@ -5,8 +5,7 @@ import json
 from pathlib import Path
 
 from .contract import ContractError, validate_artifact
-from .manager import load_manifest, manifest_path, plan, render
-from .plugin import status
+from .plugin import plan, render, status
 
 
 def _print(value: object) -> None:
@@ -19,7 +18,6 @@ def build_parser() -> argparse.ArgumentParser:
     for name in ("check", "plan", "render"):
         child = sub.add_parser(name)
         child.add_argument("--model", required=True)
-    sub.add_parser("manifest")
     sub.add_parser("status")
     return parser
 
@@ -33,8 +31,6 @@ def main() -> int:
             _print(plan(Path(args.model)))
         elif args.command == "render":
             _print(render(Path(args.model)))
-        elif args.command == "manifest":
-            _print({"path": str(manifest_path()), "manifest": load_manifest()})
         else:
             _print(status())
     except (ContractError, OSError, ValueError) as exc:

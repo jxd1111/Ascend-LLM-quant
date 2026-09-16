@@ -1,78 +1,86 @@
 # vllm-ascend-quant-ext
 
-Runtime-only extension for loading and executing versioned Ascend quantized
-model artifacts. It contains no calibration datasets, ModelSlim invocation,
-model conversion, PPL evaluation, or benchmark orchestration.
+Runtime-only W8A8 extension for the project-frozen vLLM-HUST Ascend stack.
+The package contains no calibration data, ModelSlim conversion, PPL evaluation
+or benchmark orchestration.
 
-Installation alone changes no vLLM behavior. Admission is explicit and
-fail-closed:
+## Supported host baseline
+
+This alpha targets the frozen `v1` release baseline:
+
+| Component | Frozen revision |
+|---|---|
+| vLLM-HUST | ref `v1`, commit `f18cf803c5f63625e2c71253ddaf8b0bad0bad1a` |
+| vLLM-Ascend-HUST | commit `74f0c0a272376412b51e1c1864803d5f3a0f1b5f` |
+| torch / torch-npu | `2.13.0` / `2.13.0rc1` |
+| CANN | `>=9.1,<9.2` |
+
+Admission checks both the declared package version and the Git revision token
+embedded in the installed vLLM distributions. Unknown revisions fail closed.
+
+## Integration boundary
+
+The wheel uses vLLM's native Python plugin entry point:
+
+```toml
+[project.entry-points."vllm.general_plugins"]
+vllm_ascend_quant = "vllm_ascend_quant_ext.plugin:register"
+```
+
+It does not register an Extension Manager Bundle and does not monkey patch
+vLLM. vLLM owns process startup and shutdown; vLLM-Ascend continues to own
+weight loading, parameter layout, W8A8 execution and NPU operators. The plugin
+owns artifact admission and the namespaced `ASCEND_QUANT_W8A8` scheme alias.
+
+Installation and discovery are side-effect free. The registration callback is
+idempotent and remains disabled unless explicitly enabled.
+
+## Install and inspect
 
 ```bash
-vllm-ascend-quant-ext check --model /path/to/model
-vllm-ascend-quant-ext plan --model /path/to/model
-vllm-ascend-quant-ext render --model /path/to/model
+python -m pip install vllm-ascend-quant-ext==0.4.1a3
+
+vllm-ascend-quant-ext check --model /path/to/w8a8-model
+vllm-ascend-quant-ext status
+vllm-ascend-quant-ext render --model /path/to/w8a8-model
 ```
 
-`plan` and `render` describe an explicit direct-diagnostic path. They do not
-produce Extension Manager activation evidence. The plugin validates the model
-contract before importing vLLM-Ascend implementation modules and never modifies
-the model directory.
+## Start vLLM
 
-This extension is for model-weight quantization. It does not own KV-cache
-format, allocation, compression, scheduling, or the lifecycle of
-`vllm-ascend-adaptive-quantized-kv-hust`.
+```bash
+export VLLM_ASCEND_QUANT_EXT_ENABLE=1
+export VLLM_ASCEND_QUANT_EXT_ARTIFACT=/path/to/w8a8-model
 
-The proposed Manager adapter is exposed as a pure-data symbol:
-
-```python
-from vllm_ascend_quant_ext.manager import provider
-
-provider.descriptor()
-provider.check({"enabled": True, "model": "/path/to/model"})
-provider.plan({"enabled": True, "model": "/path/to/model"})
-provider.render({"enabled": True, "model": "/path/to/model"})
+vllm-hust serve /path/to/w8a8-model \
+  --host 0.0.0.0 \
+  --port 18000
 ```
 
-This adapter is import-only: inspection and artifact checking are supported,
-but enabled `plan` and `render` fail closed until vLLM-Ascend publishes the
-declared typed Host protocols. See `../docs/extension-manager-handoff.md`.
+Do not set `VLLM_PLUGINS` to only `vllm_ascend_quant`: that variable filters
+every plugin group and would suppress required vLLM-Ascend platform/general
+plugins. The frozen host discovers installed general plugins automatically;
+the extension-owned enable switch keeps this callback default-off.
 
-## Extension Bundle identity
+The contract is validated before importing the vLLM-Ascend scheme module.
+Missing files, hashes, tensors, software versions, frozen revisions or scheme
+providers abort startup.
 
-```text
-PyPI distribution: vllm-ascend-quant-ext
-Python package:     vllm_ascend_quant_ext
-Bundle ID:          org.vllm-hust.ascend-quant-runtime
-Component ID:       ascend-quant-artifact-validator
-Full component ID:  org.vllm-hust.ascend-quant-runtime/ascend-quant-artifact-validator
-Contract:           vllm.ascend.quantized-artifact-loader.v1
-Execution planes:   worker, device
-Status:             import_only
+## Disable and uninstall
+
+The plugin is process scoped; it is not hot-unloaded. Stop the old vLLM
+process, then start a new process without the selection variables:
+
+```bash
+unset VLLM_ASCEND_QUANT_EXT_ENABLE
+unset VLLM_ASCEND_QUANT_EXT_ARTIFACT
+python -m pip uninstall -y vllm-ascend-quant-ext
 ```
 
-The wheel exposes two distinct entry points:
+Installation, validation and uninstall never modify the model directory. A
+model whose active metadata names `ASCEND_QUANT_W8A8` still requires the
+plugin; restoring native `W8A8_MIX` metadata is a separate offline Toolkit
+operation.
 
-- `vllm_hust.extension_bundles` discovers static Bundle metadata;
-- `vllm.general_plugins` provides an explicit direct-diagnostic registration path.
-
-The first is the Manager discovery target. The Bundle does not automatically
-select the second entry point or inject environment/additional-config values.
-That prevents partial integration from starting an unsafe legacy path. Formal
-activation remains blocked until vLLM-Ascend accepts and materializes both
-declared Host protocols.
-
-The namespaced `ASCEND_QUANT_W8A8` registration delegates to the selected
-vLLM-Ascend W8A8 linear and MoE implementations. The extension owns admission and
-alias registration, while vLLM-Ascend continues to own weight loading,
-parameter layout, execution-role selection, and NPU operators.
-
-The Bundle manifest is located at:
-
-```text
-vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json
-```
-
-The identifiers use the current `0.2-experimental` Manager baseline. This is
-still an alpha/NO-GO integration: `import_only` must not be changed to an active
-status before the Extension Manager and vLLM-Ascend owners approve the Host
-loader/operator contracts.
+This extension loads model weights and registers the validated dense-linear
+W8A8 activation/weight path only. It does
+not own KV-cache format, allocation, compression or request scheduling.

@@ -8,6 +8,32 @@ permissions:
   contents: read
 
 jobs:
+  frozen-host-source-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out runtime extension
+        uses: actions/checkout@v4
+        with:
+          path: extension
+      - name: Check out frozen vLLM-HUST v1
+        uses: actions/checkout@v4
+        with:
+          repository: vLLM-HUST/vllm-hust
+          ref: f18cf803c5f63625e2c71253ddaf8b0bad0bad1a
+          fetch-depth: 2
+          path: host/vllm-hust
+      - name: Check out pinned vLLM-Ascend-HUST
+        uses: actions/checkout@v4
+        with:
+          repository: vLLM-HUST/vllm-ascend-hust
+          ref: 74f0c0a272376412b51e1c1864803d5f3a0f1b5f
+          path: host/vllm-ascend-hust
+      - name: Verify revisions, ancestry and public plugin APIs
+        run: |
+          python extension/runtime-extension/tools/verify_host_sources.py \
+            --vllm-source host/vllm-hust \
+            --vllm-ascend-source host/vllm-ascend-hust
+
   unit-and-package:
     runs-on: ubuntu-latest
     strategy:
@@ -37,7 +63,7 @@ jobs:
           python -m build --wheel --sdist --no-isolation \
             --outdir runtime-extension/dist runtime-extension
           python -m twine check dist/* runtime-extension/dist/*
-      - name: Verify Bundle metadata, isolated install, discovery and uninstall
+      - name: Verify plugin metadata, isolated install, discovery and uninstall
         run: |
           python runtime-extension/tools/verify_release.py \
             --wheel runtime-extension/dist/vllm_ascend_quant_ext-*.whl \

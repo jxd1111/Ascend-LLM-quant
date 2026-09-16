@@ -7,10 +7,11 @@ import pytest
 
 from vllm_ascend_quant_ext.contract import (
     ContractError,
+    _check_frozen_revision,
     _installed_version,
     validate_artifact,
 )
-from vllm_ascend_quant_ext.manager import plan, provider, render
+from vllm_ascend_quant_ext.plugin import plan, render
 
 
 def write_safetensors(path: Path, tensors: dict[str, tuple[str, list[int]]]) -> None:
@@ -145,10 +146,10 @@ def make_artifact(path: Path) -> dict:
             "operators": ["torch_npu.npu_dynamic_quant", "torch_npu.npu_quant_matmul"],
         },
         "software": {
-            "cann": ">=8.5,<8.6",
-            "torch_npu": ">=2.9,<2.10",
-            "vllm": ">=0.17,<0.18",
-            "vllm_ascend": ">=0.1.dev2790,<0.2",
+            "cann": ">=9.1,<9.2",
+            "torch_npu": ">=2.13.0rc1,<2.14",
+            "vllm": ">=0.28.1rc0,<0.29",
+            "vllm_ascend": ">=0.25.1rc1,<0.29",
         },
         "files": {},
         "evidence": {"level": "schema_only", "verified_profiles": [], "results": []},
@@ -493,7 +494,24 @@ def test_model_mismatch_fails_closed(tmp_path: Path):
     contract["model"]["model_type"] = "unsupported"
     refresh_file_contract(tmp_path, contract)
     (tmp_path / "ascend_quant_artifact.json").write_text(json.dumps(contract))
-    with pytest.raises(ContractError, match="model_type"):
+    with pytest.raises(ContractError, match="supports only qwen2"):
+        validate_artifact(tmp_path, check_software=False)
+
+
+def test_unverified_model_fails_closed_even_when_config_matches(tmp_path: Path):
+    contract = make_artifact(tmp_path)
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {"model_type": "qwen3", "architectures": ["Qwen3ForCausalLM"]}
+        )
+    )
+    contract["model"].update(
+        {"model_type": "qwen3", "architectures": ["Qwen3ForCausalLM"]}
+    )
+    refresh_file_contract(tmp_path, contract)
+    (tmp_path / "ascend_quant_artifact.json").write_text(json.dumps(contract))
+    with pytest.raises(ContractError, match="supports only qwen2"):
         validate_artifact(tmp_path, check_software=False)
 
 
@@ -525,49 +543,14 @@ def test_missing_cann_fails_closed(tmp_path: Path, monkeypatch):
 def test_plan_and_render_are_read_only(tmp_path: Path, monkeypatch):
     make_artifact(tmp_path)
     monkeypatch.setattr(
-        "vllm_ascend_quant_ext.manager.validate_artifact", lambda path: {"valid": True}
+        "vllm_ascend_quant_ext.plugin.validate_artifact", lambda path: {"valid": True}
     )
     before = {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()}
     assert plan(tmp_path)["mutates_model"] is False
     assert render(tmp_path)["environment"]["VLLM_ASCEND_QUANT_EXT_ENABLE"] == "1"
+    assert "VLLM_PLUGINS" not in render(tmp_path)["environment"]
     after = {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()}
     assert before == after
-
-
-def test_manager_adapter_disabled_render_removes_only_extension_state():
-    rendered = provider.render({"enabled": False, "model": "/unused"})
-    assert rendered["environment_set"] == {}
-    assert set(rendered["environment_unset"]) == {
-        "VLLM_ASCEND_QUANT_EXT_ENABLE",
-        "VLLM_ASCEND_QUANT_EXT_ARTIFACT",
-    }
-    assert rendered["vllm_plugins_remove"] == ["vllm_ascend_quant"]
-    assert "ascend" not in rendered["vllm_plugins_remove"]
-
-
-def test_manager_adapter_enabled_check_is_import_only(tmp_path: Path, monkeypatch):
-    make_artifact(tmp_path)
-    monkeypatch.setattr(
-        "vllm_ascend_quant_ext.manager.validate_artifact", lambda path: {"valid": True}
-    )
-    before = {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()}
-    checked = provider.check({"enabled": True, "model": str(tmp_path)})
-    assert checked["admitted"] is False
-    assert checked["enable_allowed"] is False
-    assert "import_only" in checked["reason"]
-    assert {p.name: p.stat().st_mtime_ns for p in tmp_path.iterdir()} == before
-
-
-def test_manager_adapter_refuses_enabled_plan_and_render(tmp_path: Path, monkeypatch):
-    make_artifact(tmp_path)
-    monkeypatch.setattr(
-        "vllm_ascend_quant_ext.manager.validate_artifact", lambda path: {"valid": True}
-    )
-    configuration = {"enabled": True, "model": str(tmp_path)}
-    with pytest.raises(RuntimeError, match="import_only"):
-        provider.plan(configuration)
-    with pytest.raises(RuntimeError, match="import_only"):
-        provider.render(configuration)
 
 
 class FakeDistribution:
@@ -597,3 +580,17 @@ def test_conflicting_installed_versions_fail_closed(monkeypatch):
     )
     with pytest.raises(ContractError, match="ambiguous installed package metadata"):
         _installed_version(("vllm-hust", "vllm"))
+
+
+def test_frozen_host_revisions_are_admitted():
+    assert _check_frozen_revision(
+        "vllm", "0.28.1.post1.dev143+gf18cf803c5"
+    ).startswith("0.28.1")
+    assert _check_frozen_revision(
+        "vllm_ascend", "0.25.1rc1.post125+g74f0c0a27"
+    ).startswith("0.25.1")
+
+
+def test_non_frozen_host_revision_fails_closed():
+    with pytest.raises(ContractError, match="required gf18cf803c5"):
+        _check_frozen_revision("vllm", "0.28.1.post1.dev144+gdeadbeef")

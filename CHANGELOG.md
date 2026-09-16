@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## vllm-ascend-quant-ext 0.4.1a3 - 2026-09-16
+
+- Retarget the runtime contract to the frozen vLLM-HUST `v1` ref at
+  `f18cf803c5` and the adjacent vLLM-Ascend-HUST snapshot `74f0c0a272`.
+- Align the declared stack with torch `2.13.0`, torch-npu `2.13.0rc1` and
+  CANN `9.1.x`.
+- Update the native W8A8 adapter to the frozen Ascend public import surface.
+- Restrict the runtime alias to dense linear layers because that snapshot does
+  not expose a PDMix fused-MoE implementation.
+- Keep earlier validation records immutable; v1 NPU end-to-end validation is
+  required before this alpha can be published as verified.
+- Add an executable host-source lock and CI job for exact revisions, merge
+  ancestry, Ascend verified-core provenance and the public plugin/W8A8 APIs.
+
+## vllm-ascend-quant-ext 0.4.1a2 - 2026-09-16
+
+- Make vLLM's native `vllm.general_plugins` entry point the sole runtime
+  integration surface.
+- Remove the experimental Extension Manager Bundle, manifest and adapter.
+- Pin admission to vLLM-HUST revision `6cff125127ba` and
+  vLLM-Ascend-HUST revision `203a33e677ac`.
+- Preserve default-off installation, fail-closed artifact admission, scheme
+  collision checks, rollback and isolated uninstall verification.
+
 ## vllm-ascend-quant-ext 0.4.1a1 - 2026-09-15
 
 - Prepare the first public PyPI alpha of the Runtime Extension.

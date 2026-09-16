@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 from .contract import ContractError, validate_artifact
+from .host_baseline import host_description
 
 LOGGER = logging.getLogger(__name__)
 ENABLE_ENV = "VLLM_ASCEND_QUANT_EXT_ENABLE"
@@ -44,11 +45,11 @@ def register_artifact(artifact: str | Path) -> list[str]:
 
 
 def register() -> None:
-    """Legacy vLLM runtime entry point retained for explicit activation.
+    """vLLM ``vllm.general_plugins`` entry point.
 
-    Bundle discovery uses ``vllm_hust.extension_bundles``. This entry point is
-    a direct diagnostic bridge and is deliberately not selected by the Bundle
-    activation record while the typed host component seam is being finalized.
+    vLLM can import this function in every runtime process.  Keep it
+    idempotent and default-off: installation and discovery alone must not
+    register a scheme or touch a device.
     """
 
     if not is_enabled():
@@ -65,8 +66,38 @@ def status() -> dict[str, object]:
         "enable_environment_variable": ENABLE_ENV,
         "artifact_environment_variable": ARTIFACT_ENV,
         "entry_point": "vllm.general_plugins/vllm_ascend_quant",
-        "bundle_entry_point": (
-            "vllm_hust.extension_bundles/"
-            "org.vllm-hust.ascend-quant-runtime"
+        "host": host_description(),
+    }
+
+
+def plan(artifact: str | Path) -> dict[str, object]:
+    """Describe the next-process activation without mutating the artifact."""
+
+    artifact_path = Path(artifact).resolve()
+    report = validate_artifact(artifact_path)
+    return {
+        "action": "enable_for_next_vllm_start",
+        "lifecycle_owner": "vllm",
+        "mutates_model": False,
+        "entry_point": "vllm.general_plugins/vllm_ascend_quant",
+        "artifact": report,
+    }
+
+
+def render(artifact: str | Path) -> dict[str, object]:
+    """Render the environment consumed by the native vLLM plugin loader."""
+
+    artifact_path = Path(artifact).resolve()
+    report = validate_artifact(artifact_path)
+    return {
+        "environment": {
+            ENABLE_ENV: "1",
+            ARTIFACT_ENV: str(artifact_path),
+        },
+        "vllm_arguments": [],
+        "note": (
+            "Do not narrow VLLM_PLUGINS unless every required frozen-host "
+            "platform and general plugin is included."
         ),
+        "artifact": report,
     }

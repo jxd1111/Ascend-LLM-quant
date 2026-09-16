@@ -1,11 +1,15 @@
 # Current vLLM-HUST / vLLM-Ascend quantization architecture
 
-Status: source audit for plugin design. This document describes the local
-source snapshots inspected on 2026-09-03:
+Status: source audit for plugin design. This document describes the frozen
+core and adjacent Ascend platform snapshots inspected on 2026-09-16:
 
-- vLLM-HUST: branch `feature-qt`, commit `6cff125127ba`;
-- vLLM-Ascend-HUST: branch `feature-qt`, commit `203a33e677ac` plus an
-  uncommitted working tree. The dirty files are not copied into this repository.
+- vLLM-HUST: frozen ref `v1`, commit `f18cf803c5`;
+- vLLM-Ascend-HUST: commit `74f0c0a272`, whose recorded verified core
+  `a67f6a5dda` is the first parent of `v1`.
+
+The final `v1` merge also incorporates upstream `bfb443a6b6`. Source/API audit
+therefore establishes the plugin boundary, while a new NPU end-to-end run is
+still required before runtime compatibility is marked verified.
 
 The scope below is model weights and linear/MoE activations. KV-cache
 quantization is a separate capability and is not part of the proposed plugin.
@@ -188,7 +192,7 @@ items for later phases; only W8A8 is hardware-verified by this project today.
 - namespaced aliases that delegate to host-owned scheme implementations;
 - artifact quant-type to scheme mapping;
 - capability negotiation and deterministic runtime plan;
-- Manager-facing metadata and enable/disable lifecycle.
+- vLLM-native entry-point registration and explicit next-process activation.
 
 Moving host platform, scheduler, model runner or offline calibration code into
 the plugin would violate this boundary.

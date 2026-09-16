@@ -30,9 +30,6 @@ vllm-ascend-quant-ext = "vllm_ascend_quant_ext.cli:main"
 [project.entry-points."vllm.general_plugins"]
 vllm_ascend_quant = "vllm_ascend_quant_ext.plugin:register"
 
-[project.entry-points."vllm_hust.extension_bundles"]
-"org.vllm-hust.ascend-quant-runtime" = "vllm_ascend_quant_ext.manifests"
-
 [tool.setuptools.dynamic]
 version = { attr = "vllm_ascend_quant_ext._version.__version__" }
 
@@ -41,9 +38,6 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-vllm_ascend_quant_ext = ["manifests/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

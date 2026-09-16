@@ -16,6 +16,8 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
+from .host_baseline import FROZEN_HOST_REVISIONS
+
 CONTRACT_FILENAME = "ascend_quant_artifact.json"
 SCHEMA_VERSION = "1.1.0"
 MAX_SAFETENSORS_HEADER_BYTES = 128 * 1024 * 1024
@@ -44,15 +46,7 @@ class ContractError(ValueError):
 
 
 class ArtifactContractValidator:
-    """Import-only carrier exposed to the Extension Manager.
-
-    Loading this object has no torch, vLLM, vLLM-Ascend, device, or model
-    side effects. Runtime activation remains blocked until the host publishes
-    the versioned loader and operator-selection protocols declared by the
-    Bundle manifest.
-    """
-
-    status = "import_only"
+    """Side-effect-free programmatic artifact validator."""
 
     @staticmethod
     def validate(model_path: str | Path, *, check_software: bool = True) -> dict[str, Any]:
@@ -319,6 +313,17 @@ def _check_version(label: str, installed: str | None, requirement: str) -> str:
     return installed
 
 
+def _check_frozen_revision(label: str, installed: str) -> str:
+    """Admit only the project-frozen vLLM/vLLM-Ascend source snapshots."""
+
+    required = FROZEN_HOST_REVISIONS[label]
+    if required not in installed.lower():
+        raise ContractError(
+            f"incompatible {label} revision: installed {installed}, required {required}"
+        )
+    return installed
+
+
 def _validate_structure(contract: Any) -> dict[str, Any]:
     root = _exact_keys(
         contract,
@@ -472,6 +477,12 @@ def _validate_structure(contract: Any) -> dict[str, Any]:
     if zero["semantics"] != "additive_offset_before_scale":
         raise ContractError("unsupported zero-point semantics")
     if quant["scheme"] == "W8A8":
+        if model["model_type"] != "qwen2" or model["architectures"] != [
+            "Qwen2ForCausalLM"
+        ]:
+            raise ContractError(
+                "W8A8 v1 baseline supports only qwen2/Qwen2ForCausalLM"
+            )
         if weight["granularity"] != "per_channel":
             raise ContractError("W8A8 v1.1 requires per-channel weights")
         if activation != {
@@ -893,6 +904,8 @@ def validate_artifact(model_path: Path, *, check_software: bool = True) -> dict[
         for label, aliases in package_aliases.items():
             found = _installed_version(aliases)
             installed[label] = _check_version(label, found[1] if found else None, software[label])
+            if label in FROZEN_HOST_REVISIONS:
+                _check_frozen_revision(label, installed[label])
     return {
         "valid": True,
         "model": str(model_path),

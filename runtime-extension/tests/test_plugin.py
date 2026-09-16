@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from vllm_ascend_quant_ext.host_baseline import FROZEN_HOST_REVISIONS
 from vllm_ascend_quant_ext.plugin import register, status
 
 
@@ -25,10 +26,12 @@ def test_invalid_artifact_fails_before_runtime_import(monkeypatch, tmp_path: Pat
         register()
 
 
-def test_status_exposes_bundle_and_runtime_entry_points():
+def test_status_exposes_native_vllm_entry_point_and_frozen_host():
     report = status()
     assert report["entry_point"] == "vllm.general_plugins/vllm_ascend_quant"
-    assert report["bundle_entry_point"] == (
-        "vllm_hust.extension_bundles/"
-        "org.vllm-hust.ascend-quant-runtime"
-    )
+    assert "v1/f18cf803c5" in report["host"]
+    assert "74f0c0a27" in report["host"]
+    assert FROZEN_HOST_REVISIONS == {
+        "vllm": "gf18cf803c5",
+        "vllm_ascend": "g74f0c0a27",
+    }
