@@ -17,11 +17,11 @@
   "protocols": [
     {
       "name": "vllm.general_plugins",
-      "version_range": ">=0.28.1rc1,<0.28.2"
+      "version_range": null
     },
     {
       "name": "vllm-ascend.quantization-scheme-surface",
-      "version_range": ">=0.25.1rc1,<0.25.2"
+      "version_range": null
     }
   ],
   "implementation": [
@@ -37,8 +37,7 @@
     {
       "component_id": "w8a8-runtime-scheme",
       "contracts": [
-        "vllm.general_plugins",
-        "vllm-ascend.quantization-scheme-surface"
+        "vllm.general_plugins"
       ],
       "execution_planes": [
         "worker",
@@ -70,7 +69,7 @@
         "model": "Qwen2.5-14B-Instruct W8A8",
         "tensor_parallel_size": 1,
         "execution_mode": "eager",
-        "status": "compatible_correctness_only",
+        "qualification_scope": "correctness_only",
         "reason": "Frozen v1 NPU load and deterministic inference passed; no matched BF16/W8A8 performance comparison exists yet",
         "evidence": "docs/evidence/w8a8-frozen-v1-npu-e2e-20260917.md"
       }

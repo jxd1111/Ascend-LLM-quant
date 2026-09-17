@@ -41,7 +41,10 @@ Packaging
 Lifecycle and evidence
 
 - [ ] Enable intent, disable plus new-process rollback, forget and uninstall
-      leave no residual bundle registration or stale enabled intent.
+      leave no residual bundle registration or stale enabled intent. The
+      Manifest 0.2 lifecycle was exercised with the Extension Manager at
+      `cf1ea71` in an isolated client environment (see the v1 evidence record);
+      re-run it against the released Manager client before publishing.
 - [ ] Real NPU validation records the exact wheel hash, host revisions, model,
       accelerator and raw log paths.
 - [ ] The frozen-host gate (`runtime-extension/tools/npu_e2e.py`) ran against

@@ -119,18 +119,29 @@ def test_host_declaration_does_not_fabricate_a_host_api_version(manifest: dict) 
     assert "api_range" not in host, "the frozen host exposes no independent versioned plugin API"
 
 
-def test_protocol_ranges_admit_the_tested_baseline(manifest: dict) -> None:
+def test_protocols_are_declared_without_inventing_a_range(manifest: dict) -> None:
+    """The frozen host exposes no independently versioned protocol surface.
+
+    Declaring a range would make the Extension Manager treat the protocol as
+    unverifiable and refuse to launch the extension; ``null`` lets it defer to
+    the host range plus the acceptance evidence instead. Verified against the
+    Manager validator; see ADR 0002.
+    """
+
     protocols = {item["name"]: item["version_range"] for item in manifest["protocols"]}
-    assert Version(FROZEN_VLLM) in SpecifierSet(protocols["vllm.general_plugins"])
-    assert Version(FROZEN_VLLM_ASCEND) in SpecifierSet(
-        protocols["vllm-ascend.quantization-scheme-surface"]
-    )
+    assert set(protocols) == {
+        "vllm.general_plugins",
+        "vllm-ascend.quantization-scheme-surface",
+    }
+    assert protocols["vllm.general_plugins"] is None
+    assert protocols["vllm-ascend.quantization-scheme-surface"] is None
 
 
-def test_protocol_ranges_reject_a_foreign_host_line(manifest: dict) -> None:
-    protocols = {item["name"]: item["version_range"] for item in manifest["protocols"]}
-    assert Version("0.24.0") not in SpecifierSet(protocols["vllm-ascend.quantization-scheme-surface"])
-    assert Version("0.29.0") not in SpecifierSet(protocols["vllm.general_plugins"])
+def test_host_range_admits_the_baseline_and_rejects_a_foreign_line(manifest: dict) -> None:
+    host_range = SpecifierSet(manifest["host"]["version_range"])
+    assert Version(FROZEN_VLLM_ASCEND) in host_range
+    assert Version("0.24.0") not in host_range
+    assert Version("0.26.0") not in host_range
 
 
 def test_implementation_reference_resolves(manifest: dict) -> None:
@@ -148,6 +159,32 @@ def test_components_are_unique_and_permissions_are_minimal(manifest: dict) -> No
         assert set(component["permissions"]) <= ALLOWED_PERMISSIONS
         assert component["execution_planes"]
         assert component["isolation"] in ALLOWED_ISOLATION
+
+
+def test_component_contracts_stay_inside_the_vllm_namespace(manifest: dict) -> None:
+    """The Manager re-parses ``components`` with its Bundle v1 component schema.
+
+    That schema accepts only contracts in the ``vllm.`` namespace, so a
+    host-side surface such as ``vllm-ascend.quantization-scheme-surface`` must be
+    declared under ``protocols`` instead. Verified against the Extension Manager
+    validator; see ADR 0002.
+    """
+
+    contracts = [
+        contract for component in manifest["components"] for contract in component["contracts"]
+    ]
+    assert contracts, "a component must declare the contract it binds to"
+    for contract in contracts:
+        assert contract.startswith("vllm."), (
+            f"{contract!r} is not a vLLM contract; declare the host-side surface in "
+            "'protocols' instead, because the Manager validates components[].contracts "
+            "against the vllm.* namespace"
+        )
+
+    protocols = {item["name"] for item in manifest["protocols"]}
+    ascend_surfaces = {name for name in protocols if name.startswith("vllm-ascend.")}
+    assert ascend_surfaces, "the Ascend-side surface must stay declared in protocols"
+    assert ascend_surfaces.isdisjoint(contracts)
 
 
 def test_in_process_plugin_requires_no_external_service(manifest: dict) -> None:
@@ -174,7 +211,12 @@ def test_qualification_block_names_the_frozen_revisions(manifest: dict) -> None:
     assert qualification["core_commit"] == VLLM_HUST_COMMIT
     assert qualification["ascend_platform_commit"] == VLLM_ASCEND_HUST_COMMIT
     assert qualification["accelerator"] == "ascend"
-    assert qualification["status"] == "compatible_correctness_only"
+    assert qualification["qualification_scope"] == "correctness_only"
+    assert "status" not in qualification, (
+        "the Manager reserves 'status': it requires the operator to configure "
+        "status='passed' and then compares every manifest key against that "
+        "configuration, so a 'status' key here can never match"
+    )
     assert qualification["evidence"].startswith("docs/evidence/")
 
 

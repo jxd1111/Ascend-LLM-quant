@@ -31,6 +31,16 @@
   rejects the retired legacy manifest and the retired PDMix-named scheme module.
 - Rewrite `docs/release-checklist.md` around Manifest identity, runtime
   integration, packaging, lifecycle and TestPyPI-first publishing.
+- Make the bundle acceptable to the Extension Manager, verified with its own
+  validator and CLI: `components[].contracts` stays inside the `vllm.`
+  namespace, `protocols[].version_range` is declared as absent because the
+  frozen host exposes no independently versioned protocol surface, and the
+  runtime qualification profile no longer shadows the Manager-reserved `status`
+  key (moved to `qualification_scope`).
+- Add `tools/npu_e2e.py`, a reproducible frozen-host gate that installs the
+  wheel, activates it through vLLM's loader, serves the artifact, then
+  uninstalls, restores the previous install and re-hashes the artifact; add
+  `tests/test_npu_e2e.py` for its safety invariants.
 
 ## vllm-ascend-quant-ext 0.4.1a3 - 2026-09-16
 

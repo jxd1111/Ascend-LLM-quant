@@ -52,3 +52,29 @@ Publish the extension as a Manifest 0.2 bundle in addition to the runtime hook:
   disable, uninstall and native recovery are verified at runtime instead;
 - renaming the registration namespace is a breaking interface change and needs a
   new ADR plus a synchronized manifest, packaging and test update.
+
+## Manager-validated manifest rules
+
+The Manager does not read this manifest the way the 0.2 description alone
+suggests: it re-parses `components` with its Bundle v1 component schema and it
+reserves the `status` key inside the runtime qualification profile. Three rules
+follow, each covered by a test:
+
+- every `components[].contracts` entry must stay inside the `vllm.` namespace.
+  The Ascend-side surface therefore lives under `protocols` only; mixing it into
+  `contracts` makes the Manager reject the whole manifest.
+- `protocols[].version_range` is `null`. The frozen host exposes no independently
+  versioned protocol surface, so a concrete range is unverifiable and makes the
+  Manager refuse to launch this `trusted_in_process` extension. `null` makes the
+  Manager defer to `host.version_range` plus the acceptance evidence, which is
+  where the real compatibility statement already lives.
+- `activation.additional_config._manager_runtime_qualification` must not carry a
+  `status` key. The Manager requires the operator to configure
+  `status: "passed"` and then compares every manifest key against that
+  configuration, so an embedded `status` can never match; the scope statement is
+  declared as `qualification_scope` instead.
+
+Verified with the Manager at `cf1ea71` in an isolated client environment; see
+`docs/evidence/w8a8-frozen-v1-npu-e2e-20260917.md`. Keeping
+`vllm.general_plugins/vllm_ascend_quant` registered is still required: the
+bundle registration only makes the extension discoverable and describable.

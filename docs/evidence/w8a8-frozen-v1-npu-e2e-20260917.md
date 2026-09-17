@@ -10,8 +10,13 @@ supported host range.
 - Runtime Extension source: revision `c6f42e5` on
   `feature/manifest-0.2-extension-bundles`.
 - Artifact under test: `vllm-ascend-quant-ext==0.4.1a4`,
-  wheel `44d73089f02062534f9464edff3e926ed8af0cbc2d115f42bb5a1c8b90642d04`,
-  sdist `9f3a12d190dc6a29ba8a619d21a2a212c012a28db05d270942a342b680d39413`.
+  wheel `14a72b41031a6b4ca07aed5209a369d40c6d0b180f3d87b3d8485bdd4746f22e`,
+  sdist `097394523e609a668cdf52daaf00ff40cdb278e84a71bdee0a6d390d7998d04d`.
+  The wheel was rebuilt after the Manager-gate fixes below; the earlier
+  per-phase transcripts were captured with the pre-fix build
+  `44d73089f02062534f9464edff3e926ed8af0cbc2d115f42bb5a1c8b90642d04`. The same
+  phases are re-run with `tools/npu_e2e.py` against this final build and
+  archived as `npu_e2e_summary_final.json`.
 - Install under test: the wheel above installed non-editable into
   `/data/jxd/envs/vllm-hust-v1-cann91`. The source tree was removed from
   `PYTHONPATH`, and `vllm_ascend_quant_ext.__file__` resolved to
@@ -55,7 +60,45 @@ supported host range.
 | Host restored after the run | PASS | editable install, `17 passed` and `70 passed`, `verify_release.py` valid again |
 | Model artifact unchanged | PASS | per-file sha256 list identical before and after the run |
 | Frozen-host gate driver re-run | PASS | `runtime-extension/tools/npu_e2e.py`, 13 phases, `"ok": true`, `"failed_phases": []`, exit 0, device 6, port 18003 |
-| Manager lifecycle gates | NOT RUN | `vllm-hust-ext` is unavailable on this host |
+| Extension Manager lifecycle gates | PASS with caveats | `vllm-hust-ext` `0.2.0.dev0` at `cf1ea71`, isolated client environment; see below |
+
+## Extension Manager lifecycle gates
+
+The Manager is not published yet (its support matrix says "尚未发布；发布冻结"), but
+it installs from source, so these gates were run against a recorded revision
+instead of being left open.
+
+- Client: `vllm-hust-ext 0.2.0.dev0` at commit
+  `cf1ea71e3e2cb81ab06267ef05eddb3e580ea20b`.
+- Environment: scratch venv with `--system-site-packages` (Python 3.11) that
+  sees this distribution; state isolated through `VLLM_HUST_EXT_CONFIG`.
+  The Manager's tested client matrix lists Python 3.10/3.12, so 3.11 is a
+  deviation that must be re-checked after the Manager releases.
+- No global state was touched: the Manager config was written under `/tmp`, and
+  the frozen host was not reconfigured.
+
+| Command | Result | Note |
+|---|---|---|
+| `extension list --json` | PASS | discovered the bundle from the editable install; `torch` stayed unimported |
+| `extension inspect` / `validate` | PASS | `activation_blocker: null` |
+| `extension status` / `check` | PASS | `states: installed, discovered, compatible, configured, enabled`; evidence: host range satisfies, both protocols not independently versioned, required runtime qualification profile passed |
+| `extension plan` / `render` | PASS | non-mutating `configure_launch`; rendered environment is exactly `VLLM_ASCEND_QUANT_EXT_ENABLE=1` |
+| `extension env` | PASS | publishes the enabled-bundle marker |
+| `extension configure` + `enable` | PASS | `configure` alone leaves `enabled: false`; the operator profile must carry `status: passed` |
+| `run --dry-run -- vllm serve <artifact>` | PASS | exit 0; environment `VLLM_ASCEND_QUANT_EXT_ENABLE=1`, `VLLM_HUST_EXT_ENABLED_BUNDLES` marker, `native_extension_manifests: {}` (no fabricated host API range) |
+| `extension disable` / `forget` | PASS | state returns to `{}`; `forget` refuses while the extension is enabled |
+
+This gate found three real manifest defects, all fixed and now covered by tests
+(see ADR 0002):
+
+1. a host-side protocol name inside `components[].contracts` (the Manager
+   validates that list against the `vllm.` namespace only);
+2. concrete `protocols[].version_range` values for surfaces the frozen host does
+   not version independently, which made the Manager report the extension as
+   unverifiable and refuse `run`;
+3. a `status` key inside the runtime qualification profile, which the Manager
+   reserves for the operator-supplied configuration and therefore can never
+   match.
 
 ## Limitations
 
@@ -89,6 +132,8 @@ per-phase transcripts were produced before the driver existed and are kept as
 the primary record.
 
 ```text
+/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/npu_e2e_summary_final.json  driver summary for the final wheel build
+/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/manager-lifecycle-*.txt    Manager CLI lifecycle transcripts
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/npu_e2e_summary.json  driver summary, "ok": true
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/npu_e2e_plan.txt      driver plan of the same run
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/wheel_npu_e2e.txt               install, discovery, launch, inference, uninstall, restore

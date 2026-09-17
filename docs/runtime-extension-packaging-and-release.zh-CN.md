@@ -32,9 +32,11 @@ python runtime-extension/tools/verify_release.py \
 可从 distribution metadata 定位、`extension_id` 与注册名一致、卸载清理及可选
 的模型目录不变性。
 
-本机没有 `vllm-hust-ext` 时，`extension validate/enable/disable/forget` 与
-`run --dry-run` 属于未完成门禁；Manager 仍处于 "禁止发布 alpha、Manifest v1
-继续冻结" 状态，因此这些门禁需要在 Manager 解冻后补做。
+`vllm-hust-ext` 尚未发布，但可按 README 从源码安装。本轮已用 Manager
+`cf1ea71`（`0.2.0.dev0`）在隔离客户端环境（`VLLM_HUST_EXT_CONFIG` 指向 `/tmp`）
+跑通 `extension list/inspect/validate/status/check/plan/render/env/configure/
+enable/run --dry-run/disable/forget`，并据此修正 manifest 的三处不兼容（见
+ADR 0002 与冻结 v1 NPU 证据记录）。Manager 正式发布后需要用发布版本复跑一次。
 
 ## 正式发布
 
