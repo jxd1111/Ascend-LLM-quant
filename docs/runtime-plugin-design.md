@@ -7,18 +7,36 @@ artifacts. It extends one behavior: after explicit admission, it registers the
 extension-owned `ASCEND_QUANT_W8A8` scheme name with the frozen
 vLLM-Ascend-HUST scheme registry.
 
-It is not a vLLM fork, an Extension Manager Bundle, a conversion toolkit or a
-KV-cache plugin.
+It is not a vLLM fork, an offline conversion toolkit or a KV-cache plugin. It
+does ship a Manifest 0.2 bundle registration, but that registration is
+discovery-only: the Extension Manager validates the static manifest and the
+runtime still activates exclusively through the vLLM native entry point
+(see [ADR 0002](adr/0002-manifest-0-2-extension-bundle.md)).
 
 ## Host contract
 
-The plugin is discovered through:
+Runtime activation is discovered through:
 
 ```text
 group:  vllm.general_plugins
 name:   vllm_ascend_quant
 target: vllm_ascend_quant_ext.plugin:register
 ```
+
+Manifest discovery is published through:
+
+```text
+group:  vllm_hust.extension_bundles
+name:   org.vllm-hust.ascend-quant-runtime
+target: vllm_ascend_quant_ext.manifests
+```
+
+The second value is a static locator, not an implementation import: it resolves
+to `vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json`, whose
+`extension_id` must stay byte-identical to the registration name. Manager,
+validation and inventory tooling can read the manifest without importing the
+plugin, and no implementation module is imported while the extension is
+disabled.
 
 Supported host:
 
@@ -47,7 +65,7 @@ the public dense-linear W8A8 class.
 
 ## Inputs
 
-Activation inputs are three environment variables:
+Activation inputs are two environment variables:
 
 ```text
 VLLM_ASCEND_QUANT_EXT_ENABLE=1
@@ -79,14 +97,21 @@ is idempotent. No model file is written.
 
 ## Lifecycle
 
-1. `pip install` records the entry point but changes no serving behavior.
-2. vLLM discovers the entry point in each process.
+1. `pip install` records both entry points but changes no serving behavior.
+2. vLLM discovers the runtime entry point in each process.
 3. Without the explicit enable flag, `register()` returns without imports or
    device access.
 4. When enabled, the plugin validates the artifact and software first.
 5. Only then does it import vLLM-Ascend and register the W8A8 aliases.
 6. Disable applies to a newly started process; hot unload is not promised.
-7. Uninstall removes the entry point but never rewrites the model.
+7. Uninstall removes the entry points but never rewrites the model.
+
+When the Extension Manager is available it owns intent: `extension enable`
+declares the activation environment, `extension disable` plus a new process
+restores the built-in path, `extension forget` drops the declaration, and
+uninstall removes the distribution. The manifest declares that ownership; none
+of those commands exist on the frozen host yet, so this repository verifies the
+same transitions with the runtime switch, uninstall and a new serving process.
 
 ## Failure policy
 
