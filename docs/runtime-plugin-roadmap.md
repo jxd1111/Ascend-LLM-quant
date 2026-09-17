@@ -24,8 +24,10 @@
    `run --dry-run`, `disable`, `forget`) once `vllm-hust-ext` leaves its frozen
    alpha state, against the published wheel hash.
 2. Publish matched BF16/W8A8 throughput, TTFT, accuracy/PPL and HBM evidence.
-3. Add a clean frozen-host integration job when an authorized NPU runner is
-   available; do not use an unmanaged self-hosted GitHub runner.
+3. Wire `runtime-extension/tools/npu_e2e.py` (the frozen-host gate that installs
+   the built wheel, activates it through vLLM's loader, serves the artifact and
+   restores the host) into a clean integration job when an authorized NPU runner
+   is available; do not use an unmanaged self-hosted GitHub runner.
 4. Admit a new host revision only through an explicit compatibility PR and
    new evidence record.
 

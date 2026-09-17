@@ -54,6 +54,7 @@ supported host range.
 | Uninstall proves artifact provenance | PASS | `import vllm_ascend_quant_ext` -> `ModuleNotFoundError`; both entry-point groups disappear |
 | Host restored after the run | PASS | editable install, `17 passed` and `70 passed`, `verify_release.py` valid again |
 | Model artifact unchanged | PASS | per-file sha256 list identical before and after the run |
+| Frozen-host gate driver re-run | PASS | `runtime-extension/tools/npu_e2e.py`, 13 phases, `"ok": true`, `"failed_phases": []`, exit 0, device 6, port 18003 |
 | Manager lifecycle gates | NOT RUN | `vllm-hust-ext` is unavailable on this host |
 
 ## Limitations
@@ -82,13 +83,21 @@ supported host range.
 
 ## Raw evidence
 
+The phases below are reproducible with one command:
+`runtime-extension/tools/npu_e2e.py` (see the runtime-extension README). The
+per-phase transcripts were produced before the driver existed and are kept as
+the primary record.
+
 ```text
+/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/npu_e2e_summary.json  driver summary, "ok": true
+/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/npu_e2e_plan.txt      driver plan of the same run
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/wheel_npu_e2e.txt               install, discovery, launch, inference, uninstall, restore
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/loader_check.txt                loader-level activation and enabled/disabled contrast
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/legacy_and_reference_control.txt legacy-artifact rejection and reference-artifact admission
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/chat_wheel.json                 request payload
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/serving-wheel-041a4.log         copy of the serving log of the wheel run
 /data/jxd/validation/w8a8-plugin-v1-cann91-wheel-041a4.log                                    serving log of the wheel run
+/data/jxd/validation/npu-e2e-vllm_ascend_quant_ext-0.4.1a4-py3-none-any-port18003.log         serving log of the driver run
 /data/jxd/validation/w8a8-plugin-v1-cann91-triton322b.log                                     earlier editable-install run
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/w8a8/                                    hardlink copy with the re-exported contract
 /data/jxd/validation/Qwen2.5-14B-Instruct-w8a8-plugin-v1/                                     artifact used for the serving run

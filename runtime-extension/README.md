@@ -104,6 +104,40 @@ The contract is validated before importing the vLLM-Ascend scheme module.
 Missing files, hashes, tensors, software versions, frozen revisions or scheme
 providers abort startup.
 
+## Frozen-host NPU gate
+
+`tools/npu_e2e.py` is the release gate that proves the *wheel* serves the
+reference artifact on the frozen host. It installs the wheel non-editable with
+the extension source tree removed from `PYTHONPATH`, activates it through
+vLLM's own general-plugin loader, serves the artifact, compares two identical
+completions, then uninstalls, restores the previous install and re-hashes the
+artifact. Host paths are parameters; nothing about a specific host is
+hard-coded.
+
+```bash
+python runtime-extension/tools/npu_e2e.py \
+  --wheel runtime-extension/dist/vllm_ascend_quant_ext-0.4.1a4-py3-none-any.whl \
+  --artifact /path/to/w8a8-model \
+  --legacy-artifact /path/to/pre-v1-model \
+  --python /path/to/host/python \
+  --device 6 --port 18003 \
+  --env-script /path/to/cann/set_env.sh \
+  --env-script '/path/to/atb/set_env.sh --cxx_abi=0' \
+  --host-source /path/to/vllm-hust \
+  --host-source /path/to/vllm-ascend-hust \
+  --summary npu_e2e_summary.json
+```
+
+`--dry-run` prints every command without touching the host. The gate fails
+closed: the summary reports `"ok": false` plus the failed phase list, and the
+previous install is restored even after an error. `--keep-installed` leaves the
+wheel in place instead of restoring, and `--skip-hash` skips the two full
+artifact hash passes.
+
+The gate never narrows `VLLM_PLUGINS`, never imports the extension from the
+source tree, and refuses a `--host-source` that resolves inside this
+repository's own `src` directory.
+
 ## Disable and uninstall
 
 The plugin is process scoped; it is not hot-unloaded. Stop the old vLLM

@@ -44,6 +44,12 @@ Lifecycle and evidence
       leave no residual bundle registration or stale enabled intent.
 - [ ] Real NPU validation records the exact wheel hash, host revisions, model,
       accelerator and raw log paths.
+- [ ] The frozen-host gate (`runtime-extension/tools/npu_e2e.py`) ran against
+      the exact wheel with no failed phase: the wheel resolved from
+      `site-packages`, the loader activation record was captured, the
+      disabled contrast left the scheme unregistered, two identical completions
+      matched, uninstall left no entry point, and the artifact hashes were
+      unchanged.
 - [ ] Release notes and the manifest qualification block do not claim matched
       performance evidence that was not measured.
 
