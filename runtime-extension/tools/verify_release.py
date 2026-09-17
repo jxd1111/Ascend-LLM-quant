@@ -45,6 +45,13 @@ def _model_snapshot(model: Path | None) -> dict[str, object] | None:
     return files
 
 
+def _manifest_extension_id(wheel: Path) -> str:
+    with zipfile.ZipFile(wheel) as archive:
+        name = next(item for item in archive.namelist() if item.endswith(MANIFEST))
+        manifest = json.loads(archive.read(name).decode("utf-8"))
+    return manifest["extension_id"]
+
+
 def _check_wheel(wheel: Path) -> None:
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
@@ -52,27 +59,35 @@ def _check_wheel(wheel: Path) -> None:
         "vllm_ascend_quant_ext/_version.py",
         "vllm_ascend_quant_ext/host_baseline.py",
         "vllm_ascend_quant_ext/schemes/w8a8.py",
+        "vllm_ascend_quant_ext/manifests/__init__.py",
         ".dist-info/entry_points.txt",
     }
     missing = [suffix for suffix in suffixes if not any(name.endswith(suffix) for name in names)]
     if missing:
         raise RuntimeError(f"wheel is incomplete: {missing}")
+    if not any(name.endswith(MANIFEST) for name in names):
+        raise RuntimeError("wheel does not contain the Extension Manager Manifest 0.2")
     if any(name.endswith(LEGACY_MANIFEST) for name in names):
         raise RuntimeError("wheel contains the retired legacy extension manifest")
     if any(name.endswith(RETIRED_SCHEME) for name in names):
         raise RuntimeError("wheel contains the retired PDMix-named scheme module")
-    if any(name.endswith(MANIFEST) for name in names):
-        raise RuntimeError("wheel contains a retired Extension Manager manifest")
 
     with zipfile.ZipFile(wheel) as archive:
         entry_name = next(
             name for name in archive.namelist() if name.endswith(".dist-info/entry_points.txt")
         )
         entries = archive.read(entry_name).decode("utf-8")
-    if f"[{BUNDLE_GROUP}]" in entries or BUNDLE_ID in entries:
-        raise RuntimeError("wheel still declares the retired Extension Manager entry point")
     if f"[{ENTRY_GROUP}]" not in entries or f"{ENTRY_NAME} = vllm_ascend_quant_ext.plugin:register" not in entries:
         raise RuntimeError("wheel does not declare the vLLM runtime activation entry point")
+    if f"[{BUNDLE_GROUP}]" not in entries:
+        raise RuntimeError("wheel does not declare the Extension Manager bundle entry point")
+    if f"{BUNDLE_ID} = vllm_ascend_quant_ext.manifests" not in entries:
+        raise RuntimeError("bundle registration does not resolve to the manifest locator")
+    extension_id = _manifest_extension_id(wheel)
+    if extension_id != BUNDLE_ID:
+        raise RuntimeError(
+            f"manifest extension_id {extension_id} does not match bundle registration {BUNDLE_ID}"
+        )
 
 
 def _check_sdist(sdist: Path) -> None:
@@ -84,16 +99,17 @@ def _check_sdist(sdist: Path) -> None:
         "src/vllm_ascend_quant_ext/host_baseline.py",
         "src/vllm_ascend_quant_ext/plugin.py",
         "src/vllm_ascend_quant_ext/schemes/w8a8.py",
+        "src/vllm_ascend_quant_ext/manifests/__init__.py",
     }
     missing = [suffix for suffix in suffixes if not any(name.endswith(suffix) for name in names)]
     if missing:
         raise RuntimeError(f"sdist is incomplete: {missing}")
+    if not any(name.endswith(MANIFEST) for name in names):
+        raise RuntimeError("sdist does not contain the Extension Manager Manifest 0.2")
     if any(name.endswith(LEGACY_MANIFEST) for name in names):
         raise RuntimeError("sdist contains the retired legacy extension manifest")
     if any(name.endswith(RETIRED_SCHEME) for name in names):
         raise RuntimeError("sdist contains the retired PDMix-named scheme module")
-    if any(name.endswith(MANIFEST) for name in names):
-        raise RuntimeError("sdist contains a retired Extension Manager manifest")
 
 
 def main() -> int:
@@ -116,18 +132,31 @@ def main() -> int:
         pip = env_dir / "bin/pip"
         _run(str(pip), "install", "--no-deps", str(wheel))
         probe = r'''
+import json
 import sys
-from importlib.metadata import entry_points, version
+from importlib.metadata import distribution, entry_points, version
 
 points = [ep for ep in entry_points(group="vllm.general_plugins") if ep.name == "vllm_ascend_quant"]
 bundles = [ep for ep in entry_points(group="vllm_hust.extension_bundles") if ep.name == "org.vllm-hust.ascend-quant-runtime"]
 assert version("vllm-ascend-quant-ext")
 assert len(points) == 1
-assert len(bundles) == 0
+assert points[0].value == "vllm_ascend_quant_ext.plugin:register"
+assert len(bundles) == 1
+assert bundles[0].value == "vllm_ascend_quant_ext.manifests"
+
+# The Extension Manager locates the manifest from distribution metadata only.
+manifest = distribution("vllm-ascend-quant-ext").locate_file(
+    "vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json"
+)
+assert manifest.is_file(), "manifest is not discoverable from distribution metadata"
+document = json.loads(manifest.read_text(encoding="utf-8"))
+assert document["extension_id"] == bundles[0].name
+assert document["extension_version"] == version("vllm-ascend-quant-ext")
+
 assert "torch" not in sys.modules
 assert "vllm" not in sys.modules
 assert "vllm_ascend" not in sys.modules
-print(points[0].value)
+print(points[0].value, bundles[0].value)
 '''
         print(_run(str(python), "-c", probe).strip())
         _run(str(pip), "uninstall", "-y", DIST_NAME)

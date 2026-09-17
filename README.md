@@ -5,7 +5,8 @@ This repository contains two separately packaged components:
 - **Ascend Quant Toolkit**: offline calibration, ModelSlim conversion,
   contract export and evaluation evidence.
 - **vllm-ascend-quant-ext**: read-only W8A8 runtime plugin loaded through
-  vLLM's native `vllm.general_plugins` interface.
+  vLLM's native `vllm.general_plugins` interface and registered with the
+  vLLM-HUST Extension Manager as a static Manifest 0.2 bundle.
 
 The Toolkit is not installed in the serving process. The Runtime Extension
 contains no dataset, calibration or model-conversion lifecycle. Model-weight
@@ -52,7 +53,7 @@ SHA-256. It is validation metadata; it does not rewrite weight tensors.
 Install the independent distribution:
 
 ```bash
-python -m pip install vllm-ascend-quant-ext==0.4.1a3
+python -m pip install vllm-ascend-quant-ext==0.4.1a4
 vllm-ascend-quant-ext check --model /path/to/w8a8-model
 ```
 
@@ -71,16 +72,37 @@ Leave `VLLM_PLUGINS` unset unless the deployment already maintains a complete
 allowlist for every required Ascend platform and general plugin. The
 extension-owned enable flag is the activation gate.
 
-The installed wheel exposes only:
+The installed wheel exposes exactly two entry points:
 
 ```text
 vllm.general_plugins/vllm_ascend_quant
+vllm_hust.extension_bundles/org.vllm-hust.ascend-quant-runtime
 ```
 
-It does not expose an Extension Manager Bundle and does not modify vLLM or
-vLLM-Ascend source. The plugin validates the artifact and frozen host first,
-then registers the namespaced `ASCEND_QUANT_W8A8` linear scheme by
-delegating to the host's selected W8A8 implementation.
+The first is the runtime activation hook vLLM loads in every process. The
+second is a static Manifest 0.2 locator: the vLLM-HUST Extension Manager
+resolves it from distribution metadata and validates
+`manifests/vllm-hust-extension-v0.2.json` before importing any implementation
+module. Its registration name is identical to the manifest `extension_id`, and
+no new `vllm.*` entry-point namespace is claimed.
+
+The extension does not modify vLLM or vLLM-Ascend source. The plugin validates
+the artifact and frozen host first, then registers the namespaced
+`ASCEND_QUANT_W8A8` linear scheme by delegating to the host's selected W8A8
+implementation.
+
+### Extension Manager integration
+
+When the Extension Manager tooling is available, discovery, configuration and
+enable intent belong to it while vLLM keeps the process lifecycle:
+
+```bash
+python -m pip install 'vllm-hust-ext @ git+https://github.com/vLLM-HUST/extension-manager.git'
+vllm-hust-ext extension list
+vllm-hust-ext extension validate org.vllm-hust.ascend-quant-runtime
+vllm-hust-ext extension enable org.vllm-hust.ascend-quant-runtime
+vllm-hust-ext run --dry-run -- vllm serve /path/to/w8a8-model
+```
 
 Installation alone has no runtime effect. The callback is idempotent and
 default-off. Unknown contract fields, incompatible versions/revisions, missing
@@ -115,6 +137,8 @@ ascend-quant-toolkit restore-modelslim \
 - [Acceptance matrix](docs/acceptance-matrix.md)
 - [W8A8 evidence](docs/w8a8-evidence.md)
 - [Runtime packaging and release](docs/runtime-extension-packaging-and-release.zh-CN.md)
+- [Frozen v1 NPU E2E evidence](docs/evidence/w8a8-frozen-v1-npu-e2e-20260917.md)
+- [Release checklist](docs/release-checklist.md)
 
 Historical validation records describe the exact behavior of their published
 version and are not retroactively rewritten when integration policy changes.

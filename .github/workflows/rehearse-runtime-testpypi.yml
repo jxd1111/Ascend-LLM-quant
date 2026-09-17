@@ -1,0 +1,92 @@
+name: Rehearse Runtime Extension on TestPyPI
+
+# Manual rehearsal. The PyPI release itself stays tag-driven in
+# publish-runtime.yml; this workflow only proves that the immutable
+# distributions install and verify from an index before a version is burned.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rehearse-runtime-testpypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rehearse:
+    name: Build, verify and upload to TestPyPI
+    runs-on: ubuntu-latest
+
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/vllm-ascend-quant-ext
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Check out the rehearsal revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build and verification dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build packaging pytest setuptools twine wheel
+
+      - name: Record the version under rehearsal
+        run: |
+          VERSION="$(
+            PYTHONPATH=runtime-extension/src \
+              python -c 'from vllm_ascend_quant_ext._version import __version__; print(__version__)'
+          )"
+          echo "REHEARSAL_VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "Rehearsing runtime-v${VERSION}. The PyPI publish workflow still requires that exact tag."
+
+      - name: Run runtime-extension tests
+        run: python -m pytest -q runtime-extension/tests
+
+      - name: Build runtime extension only
+        run: |
+          python -m build \
+            --wheel \
+            --sdist \
+            --no-isolation \
+            --outdir runtime-extension/dist \
+            runtime-extension
+
+      - name: Check distribution metadata
+        run: python -m twine check runtime-extension/dist/*
+
+      - name: Verify wheel, sdist, discovery and uninstall
+        run: |
+          python runtime-extension/tools/verify_release.py \
+            --wheel runtime-extension/dist/vllm_ascend_quant_ext-*.whl \
+            --sdist runtime-extension/dist/vllm_ascend_quant_ext-*.tar.gz
+
+      - name: Upload the rehearsal distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: testpypi-rehearsal-distributions
+          path: runtime-extension/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      # TestPyPI files are immutable as well. Rehearsing a version that was
+      # already uploaded fails; use a higher version instead of trying to
+      # replace it, and never reuse a burned version for the PyPI release.
+      - name: Publish the rehearsal distributions to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: runtime-extension/dist/
+          print-hash: true

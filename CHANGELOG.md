@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+- Bump the Runtime Extension to `0.4.1a4` so the Manifest 0.2-aware packaging
+  can be published as a new immutable distribution.
+- Register the Runtime Extension as a vLLM-HUST Extension Manager bundle: ship
+  `manifests/vllm-hust-extension-v0.2.json`, declare
+  `vllm_hust.extension_bundles/org.vllm-hust.ascend-quant-runtime` as a static
+  manifest locator, and add the repository-level `.vllm-hust/optimization.json`.
+- Declare `kind: in_process_plugin`, `lifecycle_owner: vllm`, the frozen
+  host package range, the consumed `vllm.general_plugins` and
+  `vllm-ascend.quantization-scheme-surface` protocols, and the minimal
+  `device_access`/`filesystem_read` permissions. No host API version and no
+  deployment path is fabricated in the manifest.
+- Keep `vllm.general_plugins/vllm_ascend_quant` as the only runtime activation
+  entry point; the bundle registration is a manifest directory locator, not an
+  import-and-execute callback.
+- Admit abbreviated `setuptools-scm` local-version tokens. The frozen v1 host
+  installs as `0.28.1.post1.dev143+gf18cf803c.empty` while the allowlist token
+  is `gf18cf803c5`, so the previous substring check rejected the exact frozen
+  host; revision admission now parses the `g<sha>` token and compares full
+  commits.
+- Add `tests/test_manifest.py`, `tests/test_packaging.py` and
+  `tests/test_host_contract.py`: manifest fields, enumerations and identity,
+  entry-point/`extension_id` agreement, wheel and sdist manifest shipping,
+  discovery without importing the implementation, default-off registration and
+  fail-closed admission.
+- `verify_release.py` now requires the Manifest 0.2 in the wheel and the sdist,
+  requires the bundle registration to resolve to the manifest locator, and still
+  rejects the retired legacy manifest and the retired PDMix-named scheme module.
+- Rewrite `docs/release-checklist.md` around Manifest identity, runtime
+  integration, packaging, lifecycle and TestPyPI-first publishing.
+
 ## vllm-ascend-quant-ext 0.4.1a3 - 2026-09-16
 
 - Retarget the runtime contract to the frozen vLLM-HUST `v1` ref at

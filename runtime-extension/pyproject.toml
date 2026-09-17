@@ -27,8 +27,20 @@ Issues = "https://github.com/jxd1111/Ascend-LLM-quant/issues"
 [project.scripts]
 vllm-ascend-quant-ext = "vllm_ascend_quant_ext.cli:main"
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=7,<9",
+  "ruff>=0.6",
+]
+
 [project.entry-points."vllm.general_plugins"]
 vllm_ascend_quant = "vllm_ascend_quant_ext.plugin:register"
+
+# Static Manifest 0.2 locator consumed by the vLLM-HUST Extension Manager.
+# The registration name must stay identical to the manifest extension_id; the
+# value is a manifest directory locator, not an import-and-execute callback.
+[project.entry-points."vllm_hust.extension_bundles"]
+"org.vllm-hust.ascend-quant-runtime" = "vllm_ascend_quant_ext.manifests"
 
 [tool.setuptools.dynamic]
 version = { attr = "vllm_ascend_quant_ext._version.__version__" }
@@ -38,6 +50,9 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+vllm_ascend_quant_ext = ["manifests/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
