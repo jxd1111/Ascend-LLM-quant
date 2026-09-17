@@ -12,7 +12,10 @@
 - isolated wheel/sdist install, discovery and uninstall checks;
 - real Ascend NPU startup, inference, disabled-path and native recovery tests
   for the historical `0.4.1a2` host pair;
-- correctness-only NPU validation on the frozen `v1` host pair;
+- correctness-only NPU validation on the frozen `v1` host pair, re-run at wheel
+  hash level: the released wheel served the reference artifact on the NPU, the
+  scheme registry answered only while the extension was enabled, and the
+  environment was restored afterwards;
 - PyPI Trusted Publishing.
 
 ## Next evidence work
