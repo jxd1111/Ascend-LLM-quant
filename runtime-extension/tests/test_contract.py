@@ -591,6 +591,12 @@ def test_frozen_host_revisions_are_admitted():
     ).startswith("0.25.1")
 
 
+def test_frozen_host_revision_accepts_setuptools_scm_abbreviation():
+    assert _check_frozen_revision(
+        "vllm", "0.28.1.post1.dev143+gf18cf803c.empty"
+    ).startswith("0.28.1")
+
+
 def test_non_frozen_host_revision_fails_closed():
     with pytest.raises(ContractError, match="required gf18cf803c5"):
         _check_frozen_revision("vllm", "0.28.1.post1.dev144+gdeadbeef")

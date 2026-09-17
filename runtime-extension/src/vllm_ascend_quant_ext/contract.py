@@ -16,7 +16,7 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-from .host_baseline import FROZEN_HOST_REVISIONS
+from .host_baseline import FROZEN_HOST_COMMITS, FROZEN_HOST_REVISIONS
 
 CONTRACT_FILENAME = "ascend_quant_artifact.json"
 SCHEMA_VERSION = "1.1.0"
@@ -317,7 +317,9 @@ def _check_frozen_revision(label: str, installed: str) -> str:
     """Admit only the project-frozen vLLM/vLLM-Ascend source snapshots."""
 
     required = FROZEN_HOST_REVISIONS[label]
-    if required not in installed.lower():
+    commit = FROZEN_HOST_COMMITS[label]
+    revision_tokens = re.findall(r"(?:^|[.+-])g([0-9a-f]{7,40})(?=$|[.+-])", installed.lower())
+    if not any(commit.startswith(token) for token in revision_tokens):
         raise ContractError(
             f"incompatible {label} revision: installed {installed}, required {required}"
         )
