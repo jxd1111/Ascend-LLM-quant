@@ -17,6 +17,17 @@ supported host range.
   `44d73089f02062534f9464edff3e926ed8af0cbc2d115f42bb5a1c8b90642d04`. The same
   phases are re-run with `tools/npu_e2e.py` against this final build and
   archived as `npu_e2e_summary_final.json`.
+- Published artifacts: release `runtime-v0.4.1a4` (pre-release) on tag commit
+  `cdd8eea`, built by `publish-runtime.yml` run #3.
+  - PyPI wheel
+    `24ab724c6e526206c504d6e0baf0b5a98ddc0a160fdc01d7e3c1764857169f5c`
+  - PyPI sdist
+    `c1e7dd455980b498a674a679897a86a47a0f1a1d01fa0cfdb9fae72d7569125c`
+  - TestPyPI rehearsal wheel
+    `053810b370522f3bca3e45b14f08efd935d1930cc3cccbf68d7ea6507b6e12af`
+  - The two wheels are not byte-identical (ZIP framing differs) but every
+    uncompressed file matches exactly, so the gated and the published artifact
+    carry identical content.
 - Install under test: the wheel above installed non-editable into
   `/data/jxd/envs/vllm-hust-v1-cann91`. The source tree was removed from
   `PYTHONPATH`, and `vllm_ascend_quant_ext.__file__` resolved to
@@ -61,6 +72,9 @@ supported host range.
 | Model artifact unchanged | PASS | per-file sha256 list identical before and after the run |
 | Frozen-host gate driver re-run | PASS | `runtime-extension/tools/npu_e2e.py`, 13 phases, `"ok": true`, `"failed_phases": []`, exit 0, device 6, port 18003 |
 | Extension Manager lifecycle gates | PASS with caveats | `vllm-hust-ext` `0.2.0.dev0` at `cf1ea71`, isolated client environment; see below |
+| PyPI publication | PASS | release `runtime-v0.4.1a4` -> tag commit `cdd8eea`, `publish-runtime.yml` run #3 green, wheel `24ab724c…`, sdist `c1e7dd45…` |
+| Published wheel vs gated wheel | PASS | every uncompressed file identical to `053810b3…`; only ZIP framing differs |
+| NPU gate on the published wheel | PASS | `tools/npu_e2e.py` against `24ab724c…`: 13/13 phases, `"ok": true`, two identical `OK` completions |
 
 ## Extension Manager lifecycle gates
 
@@ -100,6 +114,23 @@ This gate found three real manifest defects, all fixed and now covered by tests
    reserves for the operator-supplied configuration and therefore can never
    match.
 
+## Release retrospective
+
+Two workflow defects were found by the release process itself rather than by
+review, and both are fixed:
+
+- `rehearse-runtime-testpypi.yml` failed on its first dispatch at the test step
+  because it installed only the build dependencies, so the subprocess probe in
+  `tests/test_host_contract.py` could not import the package (fixed by #10);
+- `publish-runtime.yml` failed the same way on the first PyPI release attempt.
+  Nothing was published and no version was consumed, so the fix (#11) was
+  followed by moving the tag and re-creating the release instead of bumping the
+  version. Tag `runtime-v0.4.1a4` therefore points at `cdd8eea`, the commit that
+  carries both fixes.
+
+Both workflows now mirror `ci.yml`: install `jsonschema` and both local
+distributions editable before running the tests.
+
 ## Limitations
 
 - The quantized weights predate this validation; the artifact contract was
@@ -132,7 +163,11 @@ per-phase transcripts were produced before the driver existed and are kept as
 the primary record.
 
 ```text
-/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/npu_e2e_summary_final.json  driver summary for the final wheel build
+/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/PYPI_WHEEL_GATE_VERDICT.txt        gate verdict for the published wheel
+/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/pypi_npu_e2e_summary.json          gate summary for the published wheel
+/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/pypi-wheel.sha256                 hash of the downloaded published wheel
+/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/TESTPYPI_WHEEL_GATE_VERDICT.txt    gate verdict for the rehearsal wheel
+/data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/npu_e2e_summary_final.json         driver summary for the local final build
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/manager-lifecycle-*.txt    Manager CLI lifecycle transcripts
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/npu_e2e_summary.json  driver summary, "ok": true
 /data/jxd/ascend-quant-validation/20260917-frozen-v1/wheel-e2e/npu_e2e_plan.txt      driver plan of the same run
