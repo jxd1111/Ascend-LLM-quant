@@ -1,0 +1,78 @@
+{
+  "schema_version": "0.2-experimental",
+  "extension_id": "org.vllm-hust.ascend-quant-runtime",
+  "extension_version": "0.4.1a4",
+  "kind": "in_process_plugin",
+  "host": {
+    "provider": "vllm",
+    "name": "vllm-ascend",
+    "version_range": ">=0.25.1rc1,<0.25.2"
+  },
+  "runtime": {
+    "type": "python",
+    "process_scope": "vllm_engine_and_ascend_worker",
+    "isolation": "trusted_in_process"
+  },
+  "lifecycle_owner": "vllm",
+  "protocols": [
+    {
+      "name": "vllm.general_plugins",
+      "version_range": null
+    },
+    {
+      "name": "vllm-ascend.quantization-scheme-surface",
+      "version_range": null
+    }
+  ],
+  "implementation": [
+    {
+      "type": "python_entry_point",
+      "group": "vllm.general_plugins",
+      "name": "vllm_ascend_quant",
+      "status": "active"
+    }
+  ],
+  "requires_services": [],
+  "components": [
+    {
+      "component_id": "w8a8-runtime-scheme",
+      "contracts": [
+        "vllm.general_plugins"
+      ],
+      "execution_planes": [
+        "worker",
+        "device"
+      ],
+      "isolation": "trusted_in_process",
+      "implementation_ref": "vllm_ascend_quant_ext.plugin:register",
+      "permissions": [
+        "device_access",
+        "filesystem_read"
+      ]
+    }
+  ],
+  "activation": {
+    "entry_points": [
+      {
+        "group": "vllm.general_plugins",
+        "name": "vllm_ascend_quant"
+      }
+    ],
+    "environment": {
+      "VLLM_ASCEND_QUANT_EXT_ENABLE": "1"
+    },
+    "additional_config": {
+      "_manager_runtime_qualification": {
+        "accelerator": "ascend",
+        "core_commit": "f18cf803c5f63625e2c71253ddaf8b0bad0bad1a",
+        "ascend_platform_commit": "74f0c0a272376412b51e1c1864803d5f3a0f1b5f",
+        "model": "Qwen2.5-14B-Instruct W8A8",
+        "tensor_parallel_size": 1,
+        "execution_mode": "eager",
+        "qualification_scope": "correctness_only",
+        "reason": "Frozen v1 NPU load and deterministic inference passed; no matched BF16/W8A8 performance comparison exists yet",
+        "evidence": "docs/evidence/w8a8-frozen-v1-npu-e2e-20260917.md"
+      }
+    }
+  }
+}

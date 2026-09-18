@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "ascend-quant-runtime",
+  "repository": "Ascend-LLM-quant",
+  "source_subdir": "runtime-extension",
+  "entrypoint": {
+    "group": "vllm.general_plugins",
+    "name": "vllm_ascend_quant"
+  },
+  "parameters": {
+    "artifact": {
+      "flag": null,
+      "required": true,
+      "environment": "VLLM_ASCEND_QUANT_EXT_ARTIFACT",
+      "description": "Deployment path of the validated W8A8 artifact directory. This is user configuration and is deliberately not part of the static manifest."
+    }
+  },
+  "activation": {
+    "vllm_plugins": [
+      "ascend",
+      "vllm_ascend_quant"
+    ],
+    "environment": {
+      "VLLM_ASCEND_QUANT_EXT_ENABLE": "1"
+    },
+    "extra_env_keys": [
+      "VLLM_ASCEND_QUANT_EXT_ARTIFACT"
+    ],
+    "extra_args": []
+  },
+  "compatibility": {
+    "incompatible_with": [],
+    "model_qualifications": [
+      {
+        "model": "Qwen2.5-14B-Instruct W8A8",
+        "tensor_parallel_size": 1,
+        "execution_mode": "eager",
+        "status": "compatible",
+        "functional_compatibility": "passed",
+        "runtime_state_source": "live_instance_observation_only",
+        "effectiveness_qualification": {
+          "status": "not-measured",
+          "scope": "correctness-only",
+          "reason": "No matched BF16/W8A8 throughput, TTFT or PPL comparison has been recorded for this baseline"
+        },
+        "evidence": "docs/evidence/w8a8-frozen-v1-npu-e2e-20260917.md"
+      }
+    ]
+  }
+}

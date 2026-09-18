@@ -15,6 +15,14 @@ FROZEN_HOST_REVISIONS = {
     "vllm_ascend": "g74f0c0a27",
 }
 
+# Full commits are authoritative.  The generated local-version token is not:
+# setuptools-scm may abbreviate the same commit to a different unambiguous
+# length depending on the repository/object database used for the build.
+FROZEN_HOST_COMMITS = {
+    "vllm": VLLM_HUST_COMMIT,
+    "vllm_ascend": VLLM_ASCEND_HUST_COMMIT,
+}
+
 
 def host_description() -> str:
     return (

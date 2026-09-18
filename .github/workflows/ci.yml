@@ -63,6 +63,34 @@ jobs:
           python -m build --wheel --sdist --no-isolation \
             --outdir runtime-extension/dist runtime-extension
           python -m twine check dist/* runtime-extension/dist/*
+      - name: Verify runtime extension Manifest 0.2 bundle metadata
+        run: |
+          python - <<'PY'
+          import json
+          import zipfile
+          from pathlib import Path
+
+          wheel = next(Path("runtime-extension/dist").glob("vllm_ascend_quant_ext-*.whl"))
+          with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+              entry = next(name for name in names if name.endswith(".dist-info/entry_points.txt"))
+              entries = archive.read(entry).decode("utf-8")
+              manifest_name = next(
+                  name for name in names if name.endswith("manifests/vllm-hust-extension-v0.2.json")
+              )
+              manifest = json.loads(archive.read(manifest_name).decode("utf-8"))
+
+          assert "[vllm.general_plugins]" in entries
+          assert "vllm_ascend_quant = vllm_ascend_quant_ext.plugin:register" in entries
+          assert "[vllm_hust.extension_bundles]" in entries
+          assert "org.vllm-hust.ascend-quant-runtime = vllm_ascend_quant_ext.manifests" in entries
+          assert manifest["extension_id"] == "org.vllm-hust.ascend-quant-runtime"
+          assert manifest["kind"] == "in_process_plugin"
+          assert manifest["lifecycle_owner"] == "vllm"
+          assert not any(name.endswith("extension-manifest.json") for name in names)
+          print(wheel.name, "carries a consistent Manifest 0.2 bundle registration")
+          PY
+
       - name: Verify plugin metadata, isolated install, discovery and uninstall
         run: |
           python runtime-extension/tools/verify_release.py \
