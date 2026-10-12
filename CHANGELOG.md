@@ -88,6 +88,9 @@
 - Keep the wheel dependency-free: the Toolkit runtime modules import only the
   standard library, and the publish workflow proves it by installing the built
   wheel with `--no-deps` and running the console script.
+- Point `docs/artifact-contract-v1.1-migration.md` at the release pair that
+  carries this contract (`ascend-quant-toolkit` 0.4.2 with
+  `vllm-ascend-quant-ext` 0.5.0) instead of the historical 0.4.1 instruction.
 
 ## vllm-ascend-quant-ext 0.4.1a4 - 2026-09-18
 

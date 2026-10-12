@@ -16,8 +16,9 @@ before the vLLM-Ascend implementation is imported.
 
 ## Upgrade an existing W8A8 artifact
 
-Install matching Toolkit and Runtime Extension 0.4.1, then regenerate the
-contract:
+Install the Toolkit and Runtime Extension releases that match this contract —
+`ascend-quant-toolkit` 0.4.2 with `vllm-ascend-quant-ext` 0.5.0 — then
+regenerate the contract:
 
 ```bash
 python -m pip install -e . --no-deps --no-build-isolation
