@@ -14,6 +14,14 @@ from .artifact import (
     write_manifest,
     write_runtime_contract,
 )
+from .attachment import (
+    ATTACHMENT_FILENAME,
+    DEFAULT_QUANT_TYPE,
+    SmoothingRequest,
+    build_attachment,
+    build_online_view,
+    validate_attachment,
+)
 from .doctor import collect_checks
 from .evidence import load_evidence
 from .modelslim import QuantizeRequest, run_quantization, validate_request
@@ -132,6 +140,74 @@ def command_validate_evidence(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_build_smoothing(args: argparse.Namespace) -> int:
+    request = SmoothingRequest(
+        model_path=Path(args.model).resolve(),
+        artifact_path=Path(args.artifact).resolve(),
+        output_path=Path(args.output).resolve(),
+        quant_type=args.quant_type,
+        denom=args.denom,
+        mag_frac=args.mag_frac,
+        em_rounds=args.em_rounds,
+        min_match_rate=args.min_match_rate,
+        max_iterator_diff=args.max_iterator_diff,
+        prefixes=tuple(args.prefix or ()),
+    )
+    every = max(int(args.progress_every), 0)
+
+    def emit(done: int, total: int, prefix: str) -> None:
+        if every and (done % every == 0 or done == total):
+            print(f"[{done}/{total}] {prefix}", file=sys.stderr, flush=True)
+
+    manifest = build_attachment(request, progress=emit)
+    summary = manifest["summary"]
+    print(f"Attachment: {request.output_path / ATTACHMENT_FILENAME}", flush=True)
+    print(
+        f"Replayed {summary['linears_replayed']}/{summary['linears_declared']} linears, "
+        f"min INT8 match {summary['min_int8_match_rate'] * 100:.3f}%, "
+        f"max diff {summary['max_iterator_diff']} LSB, "
+        f"norms {summary['norms_recovered']}, packed aliases {summary['packed_aliases']}",
+        flush=True,
+    )
+    if not manifest["verified"]:
+        print(json.dumps(manifest["failures"], ensure_ascii=False, indent=2), file=sys.stderr)
+        return 2
+    return 0
+
+
+def command_inspect_smoothing(args: argparse.Namespace) -> int:
+    report = validate_attachment(
+        Path(args.attachment).resolve(),
+        allow_unverified=args.allow_unverified,
+    )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0 if report["valid"] else 2
+
+
+def command_build_online_view(args: argparse.Namespace) -> int:
+    output_path = Path(args.output).resolve()
+    view = build_online_view(
+        model_path=Path(args.model).resolve(),
+        attachment_path=Path(args.attachment).resolve(),
+        output_path=output_path,
+        allow_unverified=args.allow_unverified,
+    )
+    description = view["description"]
+    print(f"Serving view: {output_path / description['name']}", flush=True)
+    print(
+        f"Declared {description['linears']} online linears, {description['floats']} float weights, "
+        f"attachment {view['attachment']['attachment_id']}",
+        flush=True,
+    )
+    print(
+        f"Activate with {view['activation']['enable_environment_variable']}=1 and "
+        f"{view['activation']['attachment_environment_variable']}="
+        f"{view['attachment']['path']}",
+        flush=True,
+    )
+    return 0
+
+
 def _add_quant_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--recipe", required=True)
     parser.add_argument("--model", required=True)
@@ -209,6 +285,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evidence_parser.add_argument("--file", required=True)
     evidence_parser.set_defaults(handler=command_validate_evidence)
+
+    smoothing_parser = subparsers.add_parser(
+        "build-smoothing",
+        help="Fit the iter_smooth replay attachment from a BF16 model and its artifact",
+    )
+    smoothing_parser.add_argument("--model", required=True, help="BF16 source model directory")
+    smoothing_parser.add_argument("--artifact", required=True, help="quantized artifact directory")
+    smoothing_parser.add_argument("--output", required=True, help="attachment output directory")
+    smoothing_parser.add_argument("--quant-type", default=DEFAULT_QUANT_TYPE)
+    smoothing_parser.add_argument("--denom", type=float, default=127.0)
+    smoothing_parser.add_argument("--mag-frac", type=float, default=0.1)
+    smoothing_parser.add_argument("--em-rounds", type=int, default=3)
+    smoothing_parser.add_argument("--min-match-rate", type=float, default=0.90)
+    smoothing_parser.add_argument("--max-iterator-diff", type=int, default=2)
+    smoothing_parser.add_argument("--prefix", action="append", help="Restrict the fit to one prefix")
+    smoothing_parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=10,
+        help="Report one progress line to stderr every N fitted linears; 0 disables it",
+    )
+    smoothing_parser.set_defaults(handler=command_build_smoothing)
+
+    smoothing_inspect = subparsers.add_parser(
+        "inspect-smoothing",
+        help="Validate a fitted smoothing attachment without re-fitting it",
+    )
+    smoothing_inspect.add_argument("--attachment", required=True)
+    smoothing_inspect.add_argument("--allow-unverified", action="store_true")
+    smoothing_inspect.set_defaults(handler=command_inspect_smoothing)
+
+    online_view = subparsers.add_parser(
+        "build-online-view",
+        help="Write the BF16 serving view that activates the online W8A8 scheme",
+    )
+    online_view.add_argument("--model", required=True, help="BF16 source model directory")
+    online_view.add_argument("--attachment", required=True, help="fitted smoothing attachment directory")
+    online_view.add_argument("--output", required=True, help="serving view output directory")
+    online_view.add_argument("--allow-unverified", action="store_true")
+    online_view.set_defaults(handler=command_build_online_view)
     return parser
 
 

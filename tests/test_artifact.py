@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
+from ascend_quant_toolkit import __version__
 from ascend_quant_toolkit.artifact import (
     build_runtime_contract,
     inspect_artifact,
@@ -53,7 +54,7 @@ def test_write_manifest_records_recipe_and_source(tmp_path: Path):
     assert destination.name == "ascend_quant_manifest.json"
     assert manifest["schema_version"] == 2
     assert manifest["producer"]["name"] == "ascend-quant-toolkit"
-    assert manifest["producer"]["version"] == "0.4.1"
+    assert manifest["producer"]["version"] == __version__
     assert manifest["recipe"]["producer_quant_type"] == "W8A8_MIX"
     assert manifest["recipe"]["runtime_quant_type"] == "ASCEND_QUANT_W8A8"
     assert manifest["source_model"] == str(source_model.resolve())

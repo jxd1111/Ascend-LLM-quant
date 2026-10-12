@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ascend-quant-toolkit"
-version = "0.4.1"
+dynamic = ["version"]
 description = "Offline calibration, conversion, artifact export, and evaluation tools for Ascend quantization"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,11 +21,19 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
 ]
 
+[project.urls]
+Homepage = "https://github.com/jxd1111/Ascend-LLM-quant"
+Documentation = "https://github.com/jxd1111/Ascend-LLM-quant/tree/main/docs"
+Issues = "https://github.com/jxd1111/Ascend-LLM-quant/issues"
+
 [project.scripts]
 ascend-quant-toolkit = "ascend_quant_toolkit.cli:main"
 
 [project.entry-points."ascend_quant_toolkit.recipes"]
 qwen25-w8a8 = "ascend_quant_toolkit.recipes.qwen25_w8a8:get_recipe"
+
+[tool.setuptools.dynamic]
+version = { attr = "ascend_quant_toolkit.__version__" }
 
 [tool.setuptools]
 package-dir = { "" = "src" }
