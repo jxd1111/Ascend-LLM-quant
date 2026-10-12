@@ -40,6 +40,9 @@ from pathlib import Path
 DIST_NAME = "vllm-ascend-quant-ext"
 ENABLE_ENV = "VLLM_ASCEND_QUANT_EXT_ENABLE"
 ARTIFACT_ENV = "VLLM_ASCEND_QUANT_EXT_ARTIFACT"
+SMOOTHING_ENV = "VLLM_ASCEND_QUANT_EXT_SMOOTHING"
+ONLINE_SCHEME = "ASCEND_QUANT_W8A8_ONLINE"
+ATTACHMENT_MANIFEST = "ascend_quant_smoothing.json"
 ENTRY_GROUP = "vllm.general_plugins"
 ENTRY_NAME = "vllm_ascend_quant"
 ENTRY_VALUE = "vllm_ascend_quant_ext.plugin:register"
@@ -63,6 +66,16 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
     stream=sys.stderr,
 )
+"""
+
+# Probes must judge the distribution under test only: the frozen host shares
+# these entry-point groups with unrelated packages (for example
+# ``vllm_ascend_simllm``), and a foreign bundle is not this gate's leftover.
+DIST_SCOPE = f"""\
+def ours(entry_point):
+    dist = getattr(entry_point, "dist", None)
+    name = (getattr(dist, "name", "") or "").lower().replace("_", "-")
+    return name == {DIST_NAME!r}
 """
 
 DIST_PROBE = """\
@@ -94,7 +107,9 @@ else:
     )
 """
 
-RESOLUTION_PROBE = """\
+RESOLUTION_PROBE = (
+    DIST_SCOPE
+    + """\
 import json
 from importlib.metadata import distribution, entry_points
 
@@ -102,9 +117,16 @@ dist = distribution("vllm-ascend-quant-ext")
 manifest = dist.locate_file("vllm_ascend_quant_ext/manifests/vllm-hust-extension-v0.2.json")
 document = json.loads(manifest.read_text(encoding="utf-8"))
 general = sorted(
-    (ep.name, ep.value) for ep in entry_points(group="vllm.general_plugins") if ep.name == "vllm_ascend_quant"
+    (ep.name, ep.value)
+    for ep in entry_points(group="vllm.general_plugins")
+    if ep.name == "vllm_ascend_quant" and ours(ep)
 )
-bundles = sorted((ep.name, ep.value) for ep in entry_points(group="vllm_hust.extension_bundles"))
+bundles = sorted(
+    (ep.name, ep.value) for ep in entry_points(group="vllm_hust.extension_bundles") if ours(ep)
+)
+bundles_environment = sorted(
+    (ep.name, ep.value) for ep in entry_points(group="vllm_hust.extension_bundles")
+)
 import vllm_ascend_quant_ext
 
 print(
@@ -118,6 +140,7 @@ print(
             "manifest_extension_id": document["extension_id"],
             "general": general,
             "bundles": bundles,
+            "bundles_environment": bundles_environment,
             "record_lists_manifest": any(
                 "manifests/vllm-hust-extension-v0.2.json" in str(item) for item in (dist.files or [])
             ),
@@ -125,6 +148,7 @@ print(
     )
 )
 """
+)
 
 LOADER_PROBE = """\
 import json
@@ -161,26 +185,30 @@ else:
     print("PROBE " + json.dumps({"rejected": False}))
 """
 
-UNINSTALL_PROBE = """\
+UNINSTALL_PROBE = (
+    DIST_SCOPE
+    + """\
 import json
 from importlib.metadata import entry_points
 
-leftovers = []
+leftovers = set()
 try:
     import vllm_ascend_quant_ext  # noqa: F401
 except ModuleNotFoundError:
     pass
 else:
-    leftovers.append("module")
+    leftovers.add("module")
 
-leftovers += [
-    ep.name
-    for ep in entry_points(group="vllm.general_plugins")
-    if ep.name == "vllm_ascend_quant"
-]
-leftovers += [ep.name for ep in entry_points(group="vllm_hust.extension_bundles")]
-print("PROBE " + json.dumps({"leftovers": leftovers}))
+for group, name in (
+    ("vllm.general_plugins", "vllm_ascend_quant"),
+    ("vllm_hust.extension_bundles", "org.vllm-hust.ascend-quant-runtime"),
+):
+    for entry_point in entry_points(group=group):
+        if entry_point.name == name or ours(entry_point):
+            leftovers.add(entry_point.name)
+print("PROBE " + json.dumps({"leftovers": sorted(leftovers)}))
 """
+)
 
 
 def _probe(text: str) -> str:
@@ -398,6 +426,43 @@ def _server_command(args: argparse.Namespace, python: str, log: Path) -> str:
     return _shell(args.env_script, f"{serve} > {shlex.quote(str(log))} 2>&1", exports)
 
 
+def _online_env(args: argparse.Namespace, shim: Path | None) -> dict[str, str]:
+    """Environment of the ONLINE server: the BF16 view plus the attachment."""
+
+    env = _probe_env(args, enabled=True, shim=shim)
+    env.pop(ARTIFACT_ENV, None)
+    env[SMOOTHING_ENV] = str(args.smoothing)
+    return env
+
+
+def _online_server_command(args: argparse.Namespace, python: str, log: Path) -> str:
+    """Serve the generated ONLINE view with the attachment instead of an artifact."""
+
+    vllm = args.vllm or str(Path(python).with_name("vllm"))
+    exports = _extension_exports(args)
+    exports[ENABLE_ENV] = "1"
+    exports[SMOOTHING_ENV] = str(args.smoothing)
+    serve = _quote(
+        [
+            vllm,
+            "serve",
+            str(args.online_view),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(args.online_port),
+            "--served-model-name",
+            SERVED_NAME,
+            "--max-model-len",
+            str(args.max_model_len),
+            "--gpu-memory-utilization",
+            str(args.gpu_memory_utilization),
+            "--enforce-eager",
+        ]
+    )
+    return _shell(args.env_script, f"{serve} > {shlex.quote(str(log))} 2>&1", exports)
+
+
 
 def describe_plan(args: argparse.Namespace, python: str, log: Path) -> list[str]:
     """Return the plan text; ``--dry-run`` prints exactly these commands."""
@@ -434,6 +499,21 @@ def describe_plan(args: argparse.Namespace, python: str, log: Path) -> list[str]
         f"   {_server_command(args, python, log)}",
         f"   poll http://127.0.0.1:{args.port}/health for {args.health_timeout}s",
         "   send two identical chat completions and compare the content",
+    ]
+    if args.online_view is not None:
+        steps += [
+            "5b. serve the ONLINE view: the BF16 checkpoint plus the generated description",
+            "   "
+            + _online_server_command(
+                args,
+                python,
+                log.with_name(f"{log.stem}-online{log.suffix}"),
+            ),
+            f"   poll http://127.0.0.1:{args.online_port}/health for {args.health_timeout}s",
+            "   the attachment is the only factor source; its producer must have verified it",
+            "   send two identical chat completions and compare them with phase 5",
+        ]
+    steps += [
         "6. stop the server and prove every entry point vanished",
         f"   {_quote([python, '-m', 'pip', 'uninstall', '-y', DIST_NAME])}",
         f"   {_probe_command(args, python, UNINSTALL_PROBE, enabled=False)}",
@@ -563,11 +643,13 @@ def _gate(args: argparse.Namespace, python: str, log: Path) -> dict[str, object]
         ready = status == 200
         record("server-health", ready, status=status, exit_code=server.poll(), log=str(log))
 
+        offline_content: str | None = None
         if ready:
             first = _chat(args.port, args.request_timeout)
             second = _chat(args.port, args.request_timeout)
             content_first = _content(first)
             content_second = _content(second)
+            offline_content = content_first
             record(
                 "deterministic-inference",
                 content_first == EXPECTED_CONTENT
@@ -583,6 +665,74 @@ def _gate(args: argparse.Namespace, python: str, log: Path) -> dict[str, object]
 
         record("server-stop", _stop(server) == 0 and _health(args.port) is None)
         server = None
+
+        if args.online_view is not None:
+            online_log = log.with_name(f"{log.stem}-online{log.suffix}")
+            online_server = subprocess.Popen(
+                ["bash", "-c", _online_server_command(args, python, online_log)],
+                env=_online_env(args, shim=None),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            try:
+                deadline = time.monotonic() + args.health_timeout
+                status = None
+                while time.monotonic() < deadline:
+                    if online_server.poll() is not None:
+                        break
+                    status = _health(args.online_port)
+                    if status == 200:
+                        break
+                    time.sleep(args.poll_interval)
+                online_ready = status == 200
+                record(
+                    "online-server-health",
+                    online_ready,
+                    status=status,
+                    exit_code=online_server.poll(),
+                    log=str(online_log),
+                    view=str(args.online_view),
+                    smoothing=str(args.smoothing),
+                )
+                if online_ready:
+                    online_first = _chat(args.online_port, args.request_timeout)
+                    online_second = _chat(args.online_port, args.request_timeout)
+                    online_content = _content(online_first)
+                    online_repeat = _content(online_second)
+                    record(
+                        "online-deterministic-inference",
+                        online_content == EXPECTED_CONTENT
+                        and online_repeat == EXPECTED_CONTENT
+                        and online_content == online_repeat,
+                        content=online_content,
+                        identical=online_content == online_repeat,
+                        scheme=ONLINE_SCHEME,
+                    )
+                    # The BF16 view plus the factors must serve the same text as
+                    # the offline artifact, otherwise the replay is not faithful.
+                    record(
+                        "online-matches-offline",
+                        offline_content is not None and online_content == offline_content,
+                        offline=offline_content,
+                        online=online_content,
+                    )
+                else:
+                    record(
+                        "online-deterministic-inference",
+                        False,
+                        skipped="the server never became healthy",
+                    )
+                    record(
+                        "online-matches-offline",
+                        False,
+                        skipped="the server never became healthy",
+                    )
+            finally:
+                record(
+                    "online-server-stop",
+                    _stop(online_server) == 0 and _health(args.online_port) is None,
+                )
 
         if not args.keep_installed:
             _run(
@@ -657,6 +807,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wheel", required=True, type=Path, help="wheel to install and serve")
     parser.add_argument("--artifact", required=True, type=Path, help="reference model artifact")
     parser.add_argument("--legacy-artifact", type=Path, help="artifact that must be rejected")
+    parser.add_argument(
+        "--online-view",
+        type=Path,
+        help="ONLINE serving view written by ascend_quant_toolkit build-online-view",
+    )
+    parser.add_argument(
+        "--smoothing",
+        type=Path,
+        help="fitted smoothing attachment served through the online scheme",
+    )
+    parser.add_argument("--online-port", type=int, help="ONLINE serving port; defaults to --port + 1")
     parser.add_argument("--python", type=Path, help="interpreter of the frozen host")
     parser.add_argument("--vllm", type=Path, help="vLLM executable; defaults to <python dir>/vllm")
     parser.add_argument(
@@ -690,6 +851,21 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _attachment_verified(attachment: Path) -> bool:
+    """True when the producer's manifest declares the attachment verified.
+
+    The runtime refuses an attachment its producer did not verify against the
+    artifact, so the gate refuses it before spending device time on a server
+    whose health phase could only restate that refusal.
+    """
+
+    try:
+        document = json.loads((attachment / ATTACHMENT_MANIFEST).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return isinstance(document, dict) and document.get("verified") is True
+
+
 def _validate(args: argparse.Namespace, python: str) -> None:
     if not args.wheel.is_file():
         raise SystemExit(f"wheel not found: {args.wheel}")
@@ -697,6 +873,25 @@ def _validate(args: argparse.Namespace, python: str) -> None:
         raise SystemExit(f"artifact directory not found: {args.artifact}")
     if args.legacy_artifact is not None and not args.legacy_artifact.is_dir():
         raise SystemExit(f"legacy artifact directory not found: {args.legacy_artifact}")
+    if (args.online_view is None) != (args.smoothing is None):
+        raise SystemExit("--online-view and --smoothing are served together; pass both or neither")
+    if args.online_view is not None:
+        if not args.online_view.is_dir():
+            raise SystemExit(f"online view directory not found: {args.online_view}")
+        if not (args.online_view / "quant_model_description.json").is_file():
+            raise SystemExit(f"the online view has no quant_model_description.json: {args.online_view}")
+    if args.smoothing is not None:
+        if not args.smoothing.is_dir():
+            raise SystemExit(f"smoothing attachment directory not found: {args.smoothing}")
+        if not (args.smoothing / ATTACHMENT_MANIFEST).is_file():
+            raise SystemExit(
+                f"the smoothing attachment has no {ATTACHMENT_MANIFEST}: {args.smoothing}"
+            )
+        if not _attachment_verified(args.smoothing):
+            raise SystemExit(
+                "the smoothing attachment is not producer-verified; refit it against its "
+                f"artifact instead of relaxing the runtime check: {args.smoothing}"
+            )
     if not Path(python).is_file():
         raise SystemExit(f"python not found: {python}")
     source_root = str(Path(__file__).resolve().parents[1] / "src")
@@ -709,6 +904,8 @@ def _validate(args: argparse.Namespace, python: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.online_port is None:
+        args.online_port = args.port + 1
     python = str(args.python.resolve()) if args.python else sys.executable
     _validate(args, python)
 

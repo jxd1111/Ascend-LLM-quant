@@ -6,12 +6,16 @@ import logging
 import os
 from pathlib import Path
 
+from .attachment import AttachmentError, validate_attachment
 from .contract import ContractError, validate_artifact
 from .host_baseline import host_description
 
 LOGGER = logging.getLogger(__name__)
 ENABLE_ENV = "VLLM_ASCEND_QUANT_EXT_ENABLE"
 ARTIFACT_ENV = "VLLM_ASCEND_QUANT_EXT_ARTIFACT"
+SMOOTHING_ENV = "VLLM_ASCEND_QUANT_EXT_SMOOTHING"
+
+_NORM_HOOK_INSTALLED = False
 
 
 def is_enabled() -> bool:
@@ -44,6 +48,98 @@ def register_artifact(artifact: str | Path) -> list[str]:
     return []
 
 
+def register_smoothing(attachment: str | Path) -> list[str]:
+    """Admit a smoothing attachment and register the online W8A8 scheme.
+
+    The attachment is the only extra input of the online path.  Admission stays
+    dependency free (no torch, no vLLM, no device) and fails closed.
+    """
+
+    attachment_path = Path(attachment).resolve()
+    try:
+        admitted = validate_attachment(attachment_path)
+    except AttachmentError as exc:
+        raise RuntimeError(f"Ascend quant smoothing admission failed: {exc}") from exc
+
+    from .schemes.online_w8a8 import register_schemes
+
+    registered = register_schemes(admitted)
+    _install_norm_hook()
+    LOGGER.info(
+        "Ascend quant online runtime admitted %s (attachment_id=%s); registered=%s",
+        attachment_path,
+        admitted.attachment_id,
+        registered,
+    )
+    return registered
+
+
+def apply_norm_scales(model: object) -> int:
+    """Multiply every admitted ``norm:<module>`` factor into that norm weight.
+
+    A linear method never sees a norm module, so the activation side of a
+    norm-linear subgraph is completed here: the artifact stores the norm weight
+    already divided by the smoothing factor, and this rewrites the loaded BF16
+    weight the same way so the replayed linear receives ``x / s``.
+    """
+
+    from .schemes.online_w8a8 import active_attachment
+
+    attachment = active_attachment()
+    if attachment is None:
+        return 0
+    modules = attachment.norm_modules()
+    if not modules:
+        return 0
+    if not hasattr(model, "get_submodule"):
+        raise RuntimeError("the loaded model cannot resolve admitted norm modules")
+
+    unresolved: list[str] = []
+    applied = 0
+    for name in modules:
+        try:
+            module = model.get_submodule(name)
+        except AttributeError:
+            unresolved.append(name)
+            continue
+        weight = getattr(module, "weight", None)
+        factor = attachment.open_tensor(f"norm:{name}")
+        if weight is None or tuple(weight.shape) != tuple(factor.shape):
+            raise RuntimeError(f"norm factor does not match the model module {name}")
+        weight.data.mul_(factor.to(weight.dtype).to(weight.device))
+        applied += 1
+    if unresolved:
+        raise RuntimeError(f"admitted norm modules are absent from the model: {unresolved[:5]}")
+    return applied
+
+
+def _install_norm_hook() -> None:
+    """Apply the norm factors after every ``load_model`` call.
+
+    ``load_model`` is defined on ``BaseModelLoader`` and not on
+    ``DefaultModelLoader``, so patching the base class covers every load format.
+    The hook runs once per load, after ``process_weights_after_loading`` has
+    quantized the linears; norm weights stay floating point in both paths, so
+    the two rewrites never overlap.
+    """
+
+    global _NORM_HOOK_INSTALLED
+    if _NORM_HOOK_INSTALLED:
+        return
+    from vllm.model_executor.model_loader.base_loader import BaseModelLoader
+
+    original = BaseModelLoader.load_model
+
+    def load_model(self, *args, **kwargs):
+        model = original(self, *args, **kwargs)
+        applied = apply_norm_scales(model)
+        LOGGER.info("Ascend quant online norm factors applied to %d modules", applied)
+        return model
+
+    BaseModelLoader.load_model = load_model
+    _NORM_HOOK_INSTALLED = True
+
+
 def register() -> None:
     """vLLM ``vllm.general_plugins`` entry point.
 
@@ -55,8 +151,14 @@ def register() -> None:
     if not is_enabled():
         return
     artifact = os.environ.get(ARTIFACT_ENV)
+    smoothing = os.environ.get(SMOOTHING_ENV)
+    if artifact and smoothing:
+        raise RuntimeError(f"set either {ARTIFACT_ENV} or {SMOOTHING_ENV}, not both")
+    if smoothing:
+        register_smoothing(smoothing)
+        return
     if not artifact:
-        raise RuntimeError(f"{ARTIFACT_ENV} is required when {ENABLE_ENV}=1")
+        raise RuntimeError(f"{ARTIFACT_ENV} or {SMOOTHING_ENV} is required when {ENABLE_ENV}=1")
     register_artifact(artifact)
 
 
@@ -65,6 +167,7 @@ def status() -> dict[str, object]:
         "enabled": is_enabled(),
         "enable_environment_variable": ENABLE_ENV,
         "artifact_environment_variable": ARTIFACT_ENV,
+        "smoothing_environment_variable": SMOOTHING_ENV,
         "entry_point": "vllm.general_plugins/vllm_ascend_quant",
         "host": host_description(),
     }

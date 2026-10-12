@@ -58,7 +58,9 @@ def _check_wheel(wheel: Path) -> None:
     suffixes = {
         "vllm_ascend_quant_ext/_version.py",
         "vllm_ascend_quant_ext/host_baseline.py",
+        "vllm_ascend_quant_ext/attachment.py",
         "vllm_ascend_quant_ext/schemes/w8a8.py",
+        "vllm_ascend_quant_ext/schemes/online_w8a8.py",
         "vllm_ascend_quant_ext/manifests/__init__.py",
         ".dist-info/entry_points.txt",
     }
@@ -98,7 +100,9 @@ def _check_sdist(sdist: Path) -> None:
         "src/vllm_ascend_quant_ext/_version.py",
         "src/vllm_ascend_quant_ext/host_baseline.py",
         "src/vllm_ascend_quant_ext/plugin.py",
+        "src/vllm_ascend_quant_ext/attachment.py",
         "src/vllm_ascend_quant_ext/schemes/w8a8.py",
+        "src/vllm_ascend_quant_ext/schemes/online_w8a8.py",
         "src/vllm_ascend_quant_ext/manifests/__init__.py",
     }
     missing = [suffix for suffix in suffixes if not any(name.endswith(suffix) for name in names)]
