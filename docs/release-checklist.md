@@ -92,7 +92,9 @@ Packaging
       the Toolkit runtime modules import the standard library only.
 - [ ] Unit tests and Ruff pass on Python 3.10, 3.11 and 3.12. The job installs
       `numpy` and `safetensors` for the attachment fixtures even though the
-      distribution itself declares no runtime dependency.
+      distribution itself declares no runtime dependency, and the job installs
+      no torch: the attachment reader widens BF16 weights out of the safetensors
+      payload instead of asking a framework backend for them.
 
 Evidence
 

@@ -77,6 +77,14 @@
   `ascend_quant_smoothing.json`, and saturate the replayed INT8 range at
   `[-128, 127]` like the ModelSlim producer instead of the previous symmetric
   clamp.
+- Read the BF16 source model and the INT8 artifact without PyTorch: the
+  attachment reader decodes the safetensors payload itself and widens the BF16
+  pattern that numpy has no dtype for, so fitting runs on the torch-free offline
+  host the Toolkit targets. The previous `framework="pt"` reader made the
+  offline attachment suite fail with `ModuleNotFoundError: No module named
+  'torch'` wherever no torch runtime was installed, which the float32 fixtures
+  hid on a host that happened to have torch. The wheel still declares no runtime
+  dependency; numpy stays the offline host's own package.
 - Keep the wheel dependency-free: the Toolkit runtime modules import only the
   standard library, and the publish workflow proves it by installing the built
   wheel with `--no-deps` and running the console script.

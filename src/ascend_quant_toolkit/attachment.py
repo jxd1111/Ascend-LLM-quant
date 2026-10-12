@@ -87,6 +87,27 @@ EPS = 1e-8
 # working set of the widest shard instead of materializing it whole.
 LEAST_SQUARES_BLOCK = 4096
 
+# safetensors prefixes its JSON header with the little-endian length of that
+# header.  BF16 has no numpy dtype of its own, so it is widened from its raw
+# 16-bit pattern instead of being asked of a framework backend.
+SAFETENSORS_HEADER_PREFIX = 8
+SAFETENSORS_METADATA_KEY = "__metadata__"
+BF16_DTYPE = "BF16"
+NUMPY_DTYPES = {
+    "F64": "<f8",
+    "F32": "<f4",
+    "F16": "<f2",
+    "I64": "<i8",
+    "I32": "<i4",
+    "I16": "<i2",
+    "I8": "i1",
+    "U64": "<u8",
+    "U32": "<u4",
+    "U16": "<u2",
+    "U8": "u1",
+    "BOOL": "?",
+}
+
 
 @dataclass(frozen=True)
 class SmoothingRequest:
@@ -175,6 +196,51 @@ def quantized_linears(description: dict[str, Any], accepted_types: tuple[str, ..
     return sorted(set(prefixes))
 
 
+def _read_safetensors_header(path: Path) -> tuple[dict[str, Any], int]:
+    """Return the safetensors JSON header and the offset of its payload."""
+
+    with path.open("rb") as stream:
+        size = int.from_bytes(stream.read(SAFETENSORS_HEADER_PREFIX), "little")
+        header = json.loads(stream.read(size).decode("utf-8"))
+    return header, SAFETENSORS_HEADER_PREFIX + size
+
+
+def _tensor_names(path: Path) -> list[str]:
+    """Return every tensor name in one shard, header metadata excluded."""
+
+    header, _ = _read_safetensors_header(path)
+    return sorted(name for name in header if name != SAFETENSORS_METADATA_KEY)
+
+
+def _decode_tensor(path: Path, name: str) -> Any:
+    """Return ``name`` as float32 ``numpy.ndarray``, or ``None`` when absent.
+
+    The offline host that runs the Toolkit has no PyTorch, so the payload is
+    decoded from the safetensors bytes instead of a framework backend.  A BF16
+    weight, which numpy has no dtype for, is widened from its 16-bit pattern
+    into the high half of a float32, which is an exact conversion.
+    """
+
+    import numpy as np
+
+    header, payload_offset = _read_safetensors_header(path)
+    entry = header.get(name)
+    if not isinstance(entry, dict):
+        return None
+    start, stop = entry["data_offsets"]
+    with path.open("rb") as stream:
+        stream.seek(payload_offset + start)
+        payload = stream.read(stop - start)
+    dtype = entry["dtype"]
+    if dtype == BF16_DTYPE:
+        array = (np.frombuffer(payload, dtype="<u2").astype(np.uint32) << 16).view("<f4")
+    elif dtype in NUMPY_DTYPES:
+        array = np.frombuffer(payload, dtype=NUMPY_DTYPES[dtype])
+    else:
+        raise ValueError(f"unsupported safetensors dtype {dtype} in {path.name}")
+    return np.ascontiguousarray(array.reshape(entry["shape"]), dtype=np.float32)
+
+
 class TensorReader:
     """Lazy float32 reader over one model directory."""
 
@@ -189,21 +255,13 @@ class TensorReader:
     def get(self, name: str) -> Any:
         """Return ``name`` as float32 ``numpy.ndarray``, or ``None`` if absent."""
 
-        import numpy as np
-        from safetensors import safe_open
-
         shard = self.shard_for(name)
         if shard is None:
             return None
         path = self.model_path / shard
         if not path.is_file():
             raise FileNotFoundError(f"{self.label} shard is missing: {path}")
-        with safe_open(str(path), framework="pt", device="cpu") as handle:
-            if name not in handle.keys():
-                return None
-            tensor = handle.get_tensor(name)
-        array = tensor.to("cpu").float().numpy() if hasattr(tensor, "to") else np.asarray(tensor)
-        return np.ascontiguousarray(array, dtype=np.float32)
+        return _decode_tensor(path, name)
 
     def has(self, name: str) -> bool:
         return self.shard_for(name) is not None
@@ -214,10 +272,7 @@ class TensorReader:
         single = self.weight_map.get("__single__")
         if single is None:
             return sorted(self.weight_map)
-        from safetensors import safe_open
-
-        with safe_open(str(self.model_path / single), framework="pt", device="cpu") as handle:
-            return sorted(handle.keys())
+        return _tensor_names(self.model_path / single)
 @dataclass
 class LayerFit:
     """Recovered per-linear smoothing factors plus their evidence."""

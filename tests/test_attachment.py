@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +20,7 @@ from ascend_quant_toolkit.attachment import (
     ONLINE_VIEW_FILENAME,
     ONLINE_VIEW_KIND,
     SmoothingRequest,
+    TensorReader,
     _requant,
     _weighted_input_scale,
     build_attachment,
@@ -90,6 +92,28 @@ def _build_pair(tmp_path: Path) -> tuple[Path, Path]:
         json.dumps(description), encoding="utf-8"
     )
     return model_path, artifact_path
+
+
+def _write_bf16_shard(path: Path, name: str, values: np.ndarray) -> None:
+    """Write one real BF16 safetensors shard without a torch dependency.
+
+    ``safetensors.numpy`` cannot tag a BF16 tensor (numpy has no such dtype), so
+    the header and the widened payload are written by hand: values are truncated
+    to their high 16 bits, exactly as a BF16 producer stores them.
+    """
+
+    words = (values.astype(np.float32).view(np.uint32) >> 16).astype("<u2")
+    header = json.dumps(
+        {
+            name: {
+                "dtype": "BF16",
+                "shape": list(values.shape),
+                "data_offsets": [0, int(words.nbytes)],
+            }
+        }
+    ).encode("utf-8")
+    padded = header + b" " * (-len(header) % 8)
+    path.write_bytes(len(padded).to_bytes(8, "little") + padded + words.tobytes())
 
 
 def _request(tmp_path: Path) -> SmoothingRequest:
@@ -337,4 +361,35 @@ def test_online_view_refuses_to_reuse_an_occupied_directory(tmp_path: Path):
             attachment_path=request.output_path,
             output_path=output_path,
         )
+
+
+def test_reader_decodes_bf16_weights_without_pytorch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """The offline host that fits the factors has no PyTorch installed.
+
+    A checkpoint weight is BF16 and numpy has no bfloat16 dtype, so reading it
+    through a framework backend would import torch; the reader widens the raw
+    16-bit pattern instead.  Earlier fixtures were float32, which hid the torch
+    dependency until the attachment fixture ran on a runner without a torch
+    runtime.
+    """
+
+    # These values are exactly representable in BF16, so a wrong widening shows
+    # up as a mismatch instead of as rounding noise.
+    values = np.array([[0.5, -1.25, 3.0], [0.0, 2.5, -0.75]], dtype=np.float32)
+    layer = f"{LAYER}.self_attn.q_proj.weight"
+    model_path = tmp_path / "bf16"
+    model_path.mkdir()
+    _write_bf16_shard(model_path / "model.safetensors", layer, values)
+
+    # ``None`` in ``sys.modules`` turns any ``import torch`` into an ImportError.
+    monkeypatch.setitem(sys.modules, "torch", None)
+    reader = TensorReader(model_path, {"__single__": "model.safetensors"}, "source")
+
+    assert reader.names() == [layer]
+    read_back = reader.get(layer)
+    assert read_back.dtype == np.float32
+    assert np.array_equal(read_back, values)
+    assert reader.get(f"{LAYER}.mlp.down_proj.weight") is None
 
