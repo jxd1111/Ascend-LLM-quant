@@ -1,0 +1,104 @@
+name: Rehearse Toolkit on TestPyPI
+
+# Manual rehearsal. The PyPI release itself stays tag-driven in
+# publish-toolkit.yml; this workflow only proves that the immutable
+# distributions install and verify from an index before a version is burned.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rehearse-toolkit-testpypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rehearse:
+    name: Build, verify and upload to TestPyPI
+    runs-on: ubuntu-latest
+
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/ascend-quant-toolkit
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Check out the rehearsal revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build and verification dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build packaging pytest ruff setuptools twine wheel jsonschema
+
+      - name: Install both local distributions
+        run: |
+          python -m pip install -e . --no-deps --no-build-isolation
+          python -m pip install -e ./runtime-extension --no-deps --no-build-isolation
+
+      - name: Record the version under rehearsal
+        run: |
+          VERSION="$(PYTHONPATH=src python -c 'import ascend_quant_toolkit; print(ascend_quant_toolkit.__version__)')"
+          echo "TOOLKIT_VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "Rehearsing toolkit-v${VERSION}. The PyPI publish workflow still requires that exact tag."
+
+      - name: Run offline Toolkit tests
+        run: python -m pytest -q tests
+
+      - name: Lint Python sources
+        run: python -m ruff check .
+
+      - name: Build the Toolkit wheel and sdist
+        run: python -m build --wheel --sdist --no-isolation --outdir dist .
+
+      - name: Check distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Upload the rehearsal distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: testpypi-toolkit-rehearsal-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      # TestPyPI files are immutable as well. Rehearsing a version that was
+      # already uploaded fails; use a higher version instead of trying to
+      # replace it, and never reuse a burned version for the PyPI release.
+      - name: Publish the rehearsal distributions to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+          print-hash: true
+
+      # The rehearsal only proves something if the uploaded files install from
+      # the index as an ordinary user would install them.
+      - name: Install the rehearsed version from TestPyPI
+        run: |
+          python -m venv /tmp/testpypi-toolkit
+          /tmp/testpypi-toolkit/bin/python -m pip install --quiet --upgrade pip
+          for attempt in 1 2 3 4 5; do
+            if /tmp/testpypi-toolkit/bin/python -m pip install --quiet --no-deps \
+              --index-url https://test.pypi.org/simple/ \
+              "ascend-quant-toolkit==${TOOLKIT_VERSION}"; then
+              break
+            fi
+            echo "TestPyPI is still serving the previous index; retrying (${attempt}/5)."
+            sleep 30
+          done
+          /tmp/testpypi-toolkit/bin/python -c \
+            "import ascend_quant_toolkit; assert ascend_quant_toolkit.__version__ == '${TOOLKIT_VERSION}', ascend_quant_toolkit.__version__; print(ascend_quant_toolkit.__version__)"
+          /tmp/testpypi-toolkit/bin/ascend-quant-toolkit list-recipes

@@ -1,0 +1,156 @@
+name: Publish Toolkit
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-toolkit-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and verify distributions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the released revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build and verification dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build packaging pytest ruff setuptools twine wheel jsonschema
+
+      - name: Install both local distributions
+        run: |
+          python -m pip install -e . --no-deps --no-build-isolation
+          python -m pip install -e ./runtime-extension --no-deps --no-build-isolation
+
+      # The Toolkit is published under its own tag namespace, so a runtime tag
+      # can never publish the offline distribution by accident.
+      - name: Verify the release tag matches the package version
+        run: |
+          VERSION="$(PYTHONPATH=src python -c 'import ascend_quant_toolkit; print(ascend_quant_toolkit.__version__)')"
+          echo "TOOLKIT_VERSION=${VERSION}" >> "$GITHUB_ENV"
+          EXPECTED_TAG="toolkit-v${VERSION}"
+          if [ "${GITHUB_REF_NAME}" != "${EXPECTED_TAG}" ]; then
+            echo "Release tag ${GITHUB_REF_NAME} does not match ${EXPECTED_TAG}."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "The released revision is not contained in origin/main."
+            exit 1
+          fi
+
+      - name: Run offline Toolkit tests
+        run: python -m pytest -q tests
+
+      - name: Lint Python sources
+        run: python -m ruff check .
+
+      - name: Build the Toolkit wheel and sdist
+        run: python -m build --wheel --sdist --no-isolation --outdir dist .
+
+      - name: Check distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Verify the distributions carry the Toolkit only
+        run: |
+          python - <<'PY'
+          import os
+          import tarfile
+          import zipfile
+          from pathlib import Path
+
+          version = os.environ["TOOLKIT_VERSION"]
+          dist = Path("dist")
+          wheel = dist / f"ascend_quant_toolkit-{version}-py3-none-any.whl"
+          sdist = dist / f"ascend_quant_toolkit-{version}.tar.gz"
+          assert wheel.is_file(), wheel
+          assert sdist.is_file(), sdist
+
+          with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+              assert any(name.startswith("ascend_quant_toolkit/") for name in names)
+              assert not any(name.startswith("vllm_ascend_quant_ext/") for name in names)
+              assert not any(name.startswith("jxd_ascend_quant/") for name in names)
+              assert "ascend_quant_toolkit/attachment.py" in names
+              entry = next(
+                  name for name in names if name.endswith(".dist-info/entry_points.txt")
+              )
+              contents = archive.read(entry).decode("utf-8")
+
+          assert "ascend-quant-toolkit = ascend_quant_toolkit.cli:main" in contents
+          assert "jxd" not in contents.lower()
+          assert "[vllm.general_plugins]" not in contents
+          assert "[vllm_hust.extension_bundles]" not in contents
+
+          with tarfile.open(sdist, "r:gz") as archive:
+              names = archive.getnames()
+
+          assert not any("/runtime-extension/" in name for name in names)
+          assert any(name.endswith("/docs/artifact-contract-v1.1-migration.md") for name in names)
+          assert any(
+              name.endswith("/contracts/ascend-quant-artifact-v1.schema.json") for name in names
+          )
+          assert any(
+              name.endswith("/contracts/ascend-quant-evidence-v1.schema.json") for name in names
+          )
+          print(f"ascend-quant-toolkit {version} distributions verified")
+          PY
+
+      # The published wheel must work with no third-party dependency at all,
+      # which is what `dependencies = []` claims.
+      - name: Install the built wheel in an isolated environment
+        run: |
+          python -m venv /tmp/toolkit-install
+          /tmp/toolkit-install/bin/python -m pip install --quiet --upgrade pip
+          /tmp/toolkit-install/bin/python -m pip install --quiet --no-deps \
+            "dist/ascend_quant_toolkit-${TOOLKIT_VERSION}-py3-none-any.whl"
+          /tmp/toolkit-install/bin/ascend-quant-toolkit --help
+          /tmp/toolkit-install/bin/ascend-quant-toolkit list-recipes
+
+      - name: Upload verified distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolkit-package-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish distributions to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ascend-quant-toolkit
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download verified distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: toolkit-package-distributions
+          path: dist/
+
+      - name: Publish distributions with PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          print-hash: true
