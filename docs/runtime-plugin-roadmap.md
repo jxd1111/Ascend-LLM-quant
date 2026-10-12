@@ -16,7 +16,11 @@
   hash level: the released wheel served the reference artifact on the NPU, the
   scheme registry answered only while the extension was enabled, and the
   environment was restored afterwards;
-- PyPI Trusted Publishing.
+- ONLINE serving-view replay: the Toolkit-generated BF16 view plus the verified
+  smoothing attachment answered exactly like the converted W8A8 artifact on the
+  frozen `v1` host (wheel `0.5.0`), next to the pre-v1 rejection control;
+- PyPI Trusted Publishing for both distributions (tags `runtime-v<version>` and
+  `toolkit-v<version>`).
 
 ## Next evidence work
 

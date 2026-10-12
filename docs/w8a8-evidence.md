@@ -15,6 +15,24 @@ See [`validation-w8a8-v0.4.1-20260914.md`](validation-w8a8-v0.4.1-20260914.md)
 for the exact artifact identity, software versions, HBM snapshot, raw-log
 locations, and remaining matched-benchmark limitations.
 
+## Runtime Extension 0.5.0 ONLINE serving-view replay
+
+The Toolkit-generated ONLINE view (the BF16 checkpoint plus the per-linear
+`quant_model_description.json`) was served with
+`VLLM_ASCEND_QUANT_EXT_SMOOTHING` on the same frozen `v1` host and answered
+exactly like the converted W8A8 artifact. The gate installed the built wheel,
+still refused the pre-v1 artifact control, compared the online answer with the
+offline artifact's, uninstalled the wheel again and left both artifact hashes
+unchanged.
+
+See
+[`evidence/w8a8-online-view-npu-e2e-20261012.md`](evidence/w8a8-online-view-npu-e2e-20261012.md)
+for the wheel hash, the view and attachment identities, the phase table and the
+raw log paths.
+
+This establishes ONLINE correctness replay, not `matched_benchmark`: no BF16 or
+W8A8 throughput, TTFT, TPOT or PPL comparison was measured under this protocol.
+
 ## Fresh Toolkit to Runtime Extension E2E
 
 - Public artifact name: `Qwen2.5-14B-Instruct-w8a8`

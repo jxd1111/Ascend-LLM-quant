@@ -1,4 +1,10 @@
-# Runtime Extension release checklist
+# Release checklist
+
+Both distributions are published from their own tag namespace: the runtime
+extension uses `runtime-v<version>`, the offline Toolkit uses
+`toolkit-v<version>`.
+
+## Runtime Extension
 
 Manifest identity
 
@@ -62,6 +68,42 @@ Publishing
       TestPyPI at the exact version and re-verified before PyPI.
 - [ ] PyPI release uses GitHub OIDC Trusted Publishing; no token is stored.
 
+## Toolkit
+
+Identity
+
+- [ ] `ascend_quant_toolkit.__version__`, the changelog and the tag agree; the
+      tag has form `toolkit-v<version>` and targets a commit contained in
+      `main`. `pyproject.toml` declares the version dynamically from
+      `__version__`, so the two cannot drift.
+
+Packaging
+
+- [ ] The wheel contains the Toolkit package and the `ascend-quant-toolkit`
+      console script only: no `vllm_ascend_quant_ext` module, no `vllm.*` or
+      `vllm_hust.*` entry point, no personal-name branding.
+- [ ] The sdist ships `contracts/`, `docs/` and `catalog/`, and never contains
+      the `runtime-extension` distribution.
+- [ ] Wheel and sdist pass `twine check`.
+- [ ] The built wheel installs with `--no-deps` and its console script runs:
+      the Toolkit runtime modules import the standard library only.
+- [ ] Unit tests and Ruff pass on Python 3.10, 3.11 and 3.12.
+
+Evidence
+
+- [ ] A Toolkit change that alters what the runtime consumes (`build-smoothing`
+      factors, `build-online-view` output) is covered by the frozen-host gate
+      record that used it, and that record names the Toolkit version.
+
+Publishing
+
+- [ ] Distributions are rehearsed on TestPyPI first, then installed from
+      TestPyPI at the exact version and re-verified before PyPI.
+- [ ] PyPI and TestPyPI register a pending publisher for
+      `publish-toolkit.yml`/`rehearse-toolkit-testpypi.yml` and the `pypi`/
+      `testpypi` environments; the release uses GitHub OIDC and stores no token.
+
 PyPI artifacts are immutable. A failed release is corrected with a new version
-or yanked according to project policy; files are never overwritten.
+or yanked according to project policy; files are never overwritten and a burned
+version is never reused.
 

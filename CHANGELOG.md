@@ -1,6 +1,81 @@
 # Changelog
 
-## Unreleased
+## vllm-ascend-quant-ext 0.5.0 - 2026-10-12
+
+- Bump the Runtime Extension to `0.5.0`: the ONLINE serving path is a new
+  capability with its own frozen-host evidence, so it ships as a new immutable
+  distribution instead of reusing the already published `0.4.1a4` files.
+- Generate the ONLINE serving view the replay path needs:
+  `ascend-quant-toolkit build-online-view --model <bf16> --attachment <dir>
+  --output <view>` links the BF16 checkpoint (no weight is copied or rewritten),
+  writes the per-linear `quant_model_description.json` the host looks up as
+  `<prefix>.weight` (`ASCEND_QUANT_W8A8_ONLINE` for every linear the attachment
+  covers, `FLOAT` for every other weight) and fails closed when the checkpoint
+  and the attachment disagree in either direction.
+- Teach `tools/npu_e2e.py` the ONLINE group: `--online-view`/`--smoothing` serve
+  the generated view with `VLLM_ASCEND_QUANT_EXT_SMOOTHING` on `--online-port`
+  (`--port + 1`) and require the online answer to equal the offline artifact's.
+  The gate refuses an attachment without `ascend_quant_smoothing.json` or with
+  `verified: false` before it installs anything, so a producer that never
+  verified its fit cannot be mistaken for a device result.
+- Judge entry points per distribution in the gate: `RESOLUTION_PROBE` and
+  `UNINSTALL_PROBE` filter `vllm.general_plugins` and `vllm_hust.extension_bundles`
+  to `vllm-ascend-quant-ext`, record the environment-wide bundle list separately
+  as `bundles_environment`, and no longer report a frozen host's unrelated bundle
+  (for example `vllm_ascend_simllm`) as this extension's leftover or as a
+  wheel-resolution mismatch.
+- Score every input-factor estimator on the same replay and keep the most
+  exact one: the un-refined median now stays a candidate next to its
+  EM-refined and LSB-weighted least-squares siblings, and equal match rates are
+  broken by the tighter worst-case LSB deviation. A fit can therefore no longer
+  end up worse than the plain median it starts from, and a tie can no longer
+  keep the fuzzier replay.
+- Replay the artifact's INT8 range faithfully on both sides of the contract: the
+  online scheme and `build-smoothing` now saturate at `[-128, 127]` like the
+  ModelSlim producer, while the previous symmetric `[-127, 127]` clamp rejected
+  the most negative element of a shard and cost one LSB on that channel.
+- Replay the smoothing factors on the weight's device: the attachment is read
+  from a CPU-side safetensors file while the host has already placed every
+  parameter on the accelerator for `process_weights_after_loading`, so
+  `col_scale`/`row_scale` now follow `weight.device` before the replay
+  multiplies them, exactly as the norm side already did.  Without this the
+  ONLINE serve died with `Expected all tensors to be on the same device` on the
+  first replayed linear, after the offline half of the gate had passed.
+- Require the ONLINE modules in the release check: `verify_release.py` now fails
+  when `vllm_ascend_quant_ext/attachment.py` or
+  `vllm_ascend_quant_ext/schemes/online_w8a8.py` is missing from the wheel or the
+  sdist, so a build that predates the ONLINE path can never be published as the
+  release that claims it.
+
+## ascend-quant-toolkit 0.4.2 - 2026-10-12
+
+- Bump the offline Toolkit to `0.4.2` and publish it as its own immutable
+  distribution: `publish-toolkit.yml` (tag `toolkit-v<version>`) and
+  `rehearse-toolkit-testpypi.yml` mirror the runtime pair. The ONLINE serving
+  path needs the view generator, so the Toolkit can no longer stay outside the
+  PyPI release; the `0.4.1a1` note that kept it outside described that release
+  only.
+- Derive the distribution version from `ascend_quant_toolkit.__version__` in
+  `pyproject.toml` instead of repeating it, so the publish-time tag check and
+  the installed metadata cannot drift, and declare the Homepage, Documentation
+  and Issues URLs.
+- Generate the ONLINE serving view: `ascend-quant-toolkit build-online-view
+  --model <bf16> --attachment <dir> --output <view>` links the BF16 checkpoint
+  without copying a weight, writes the per-linear `quant_model_description.json`
+  that the host resolves as `<prefix>.weight` (`ASCEND_QUANT_W8A8_ONLINE`), and
+  fails closed when the checkpoint and the attachment disagree in either
+  direction.
+- Add `ascend_quant_toolkit.attachment`: fit and emit the per-channel smoothing
+  factors (`build-smoothing`) with the producer-side replay verification the
+  runtime requires, record every piece of derivation evidence in
+  `ascend_quant_smoothing.json`, and saturate the replayed INT8 range at
+  `[-128, 127]` like the ModelSlim producer instead of the previous symmetric
+  clamp.
+- Keep the wheel dependency-free: the Toolkit runtime modules import only the
+  standard library, and the publish workflow proves it by installing the built
+  wheel with `--no-deps` and running the console script.
+
+## vllm-ascend-quant-ext 0.4.1a4 - 2026-09-18
 
 - Bump the Runtime Extension to `0.4.1a4` so the Manifest 0.2-aware packaging
   can be published as a new immutable distribution.

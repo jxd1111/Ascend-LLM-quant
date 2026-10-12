@@ -15,10 +15,13 @@
 | [0.4.1a2 NPU 验证](validation-w8a8-v0.4.1a2-20260916.md) | 原生 vLLM 插件路径端到端记录 |
 | [v1 适配状态](validation-w8a8-v1-readiness-20260916.md) | 冻结 ref、Ascend 来源链、静态验证与待完成 NPU 门禁 |
 | [冻结 v1 NPU E2E 证据](evidence/w8a8-frozen-v1-npu-e2e-20260917.md) | wheel 哈希级别的冻结宿主 NPU 验证、fail-closed 项与仍未完成的门禁 |
+| [ONLINE 视图 NPU E2E 证据](evidence/w8a8-online-view-npu-e2e-20261012.md) | BF16 视图 + smoothing 附件在冻结 v1 宿主上的 ONLINE 复现验证（wheel 0.5.0） |
 
 Qwen2.5-14B W8A8 已在旧冻结宿主上完成加载和确定性推理验证。vLLM-HUST `v1`
 组合已完成 wheel 哈希级别的 NPU 复验（见上面的冻结 v1 NPU E2E 证据），但仍缺
 Manager 生命周期门禁与 matched BF16/W8A8 性能证据，不能继承旧结果作为发布依据。
+ONLINE 组（BF16 视图 + 已验证 smoothing 附件）已在同一冻结宿主上复现离线 artifact
+的答案，见上面的 ONLINE 视图 NPU E2E 证据；它只证明答案一致，不构成 matched 基准。
 
 历史验证文档保留当时版本的真实结构，不回写。`0.4.1a2` 记录的"移除实验性
 Manager Bundle"只描述当时状态；当前插件接口是 Manifest 0.2 双入口，见

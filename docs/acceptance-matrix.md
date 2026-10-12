@@ -9,6 +9,7 @@ automatically hardware-verified.
 |---|---|---|---|---|---|
 | BF16 | required | required baseline | required baseline | required baseline | pending repository evidence |
 | W8A8 | passed on Qwen2.5-14B | single-profile PPL retained; matched BF16 delta pending | single-profile ShareGPT retained; matched BF16 comparison pending | loaded HBM sampled; matched peak record pending | Runtime Extension 0.4.1 / contract 1.1 NPU E2E passed |
+| W8A8 (ONLINE serving view) | passed on Qwen2.5-14B: the BF16 view replayed with the verified attachment answered exactly like the converted artifact | not measured | not measured | not measured | Runtime Extension 0.5.0 ONLINE gate passed on the frozen v1 host (2026-10-12) |
 | W4A4 | required | required | required | required | pending |
 | W4A8 | required | required | required | required | pending |
 
@@ -20,6 +21,8 @@ Current W8A8 NPU E2E evidence:
 - offline log: retained in the local W8A8 experiment archive;
 - runtime log: retained in the private experiment archive and not yet published;
 - contract level: `npu_e2e`, verified profile: `W8A8`;
+- ONLINE serving-view group on the frozen `v1` host (Runtime Extension `0.5.0`):
+  [`evidence/w8a8-online-view-npu-e2e-20261012.md`](evidence/w8a8-online-view-npu-e2e-20261012.md);
 - W4A4 and W4A8 remain unverified and must not be presented as supported hardware results.
 
 Traceable W8A8 PPL and ShareGPT values, raw log locations, and the precise

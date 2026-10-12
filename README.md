@@ -30,7 +30,12 @@ revision, even if its numeric package version appears compatible.
 
 ## Offline quantization
 
+Install the released distribution, or work from a source checkout:
+
 ```bash
+python -m pip install ascend-quant-toolkit==0.4.2
+
+# or, from a source checkout
 git clone https://github.com/jxd1111/Ascend-LLM-quant.git
 cd Ascend-LLM-quant
 python -m pip install -e . --no-deps --no-build-isolation
@@ -53,7 +58,7 @@ SHA-256. It is validation metadata; it does not rewrite weight tensors.
 Install the independent distribution:
 
 ```bash
-python -m pip install vllm-ascend-quant-ext==0.4.1a4
+python -m pip install vllm-ascend-quant-ext==0.5.0
 vllm-ascend-quant-ext check --model /path/to/w8a8-model
 ```
 
@@ -107,6 +112,50 @@ vllm-hust-ext run --dry-run -- vllm serve /path/to/w8a8-model
 Installation alone has no runtime effect. The callback is idempotent and
 default-off. Unknown contract fields, incompatible versions/revisions, missing
 files, tensor mismatches and registration collisions abort activation.
+
+## Online W8A8 replay
+
+The runtime path can replay the smoothed W8A8 factors on the BF16 checkpoint
+instead of loading the converted artifact. Generate the serving view from the
+BF16 source and the fitted attachment:
+
+```bash
+ascend-quant-toolkit build-online-view \
+  --model /path/to/Qwen2.5-14B-Instruct \
+  --attachment /path/to/attachment \
+  --output /path/to/online-view
+```
+
+The view symlinks the BF16 checkpoint, writes the per-linear
+`quant_model_description.json` that makes the host select
+`ASCEND_QUANT_W8A8_ONLINE`, and records the attachment it resolves its factors
+from. No weight is copied or rewritten. Generation fails closed when the
+attachment and the checkpoint disagree: a linear without a factor would stay
+BF16 next to replayed weights, and a factor for an absent module would abort the
+load. An attachment that did not pass every replay check is admitted only with
+`--allow-unverified`.
+
+Serve the view with the attachment selected:
+
+```bash
+export VLLM_ASCEND_QUANT_EXT_ENABLE=1
+export VLLM_ASCEND_QUANT_EXT_SMOOTHING=/path/to/attachment
+
+vllm-hust serve /path/to/online-view \
+  --host 0.0.0.0 \
+  --port 18001
+```
+
+The attachment has to pass the producer's verification: the runtime refuses an
+attachment whose `verified` flag is false, so a fit that only clears a wider
+tolerance needs the widened tolerance at `build-smoothing` time rather than a
+weakened runtime check.
+
+`VLLM_ASCEND_QUANT_EXT_ARTIFACT` stays unset: the description, not an
+environment variable, decides the scheme of every linear. Passing
+`--online-view <view> --smoothing <attachment>` to `tools/npu_e2e.py` adds this
+group to the frozen-host gate and requires the online answer to match the
+offline artifact's.
 
 ## Disable, recover and uninstall
 
