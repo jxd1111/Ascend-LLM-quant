@@ -42,7 +42,10 @@ Packaging
 - [ ] Wheel contains no Toolkit calibration/conversion code or model data.
 - [ ] Isolated install/discovery/uninstall verification passes
       (`runtime-extension/tools/verify_release.py`).
-- [ ] Unit tests and Ruff pass on Python 3.10, 3.11 and 3.12.
+- [ ] Unit tests and Ruff pass on Python 3.10, 3.11 and 3.12. The ONLINE replay
+      suite needs a torch runtime: it skips (visibly, via `pytest.importorskip`)
+      on the torch-free CI runner and is covered by the frozen-host NPU gate
+      record instead, while the admission half runs everywhere.
 
 Lifecycle and evidence
 
@@ -87,7 +90,9 @@ Packaging
 - [ ] Wheel and sdist pass `twine check`.
 - [ ] The built wheel installs with `--no-deps` and its console script runs:
       the Toolkit runtime modules import the standard library only.
-- [ ] Unit tests and Ruff pass on Python 3.10, 3.11 and 3.12.
+- [ ] Unit tests and Ruff pass on Python 3.10, 3.11 and 3.12. The job installs
+      `numpy` and `safetensors` for the attachment fixtures even though the
+      distribution itself declares no runtime dependency.
 
 Evidence
 

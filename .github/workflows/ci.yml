@@ -46,7 +46,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install test and build dependencies
-        run: python -m pip install --upgrade pip setuptools wheel build pytest packaging ruff twine jsonschema
+        # numpy/safetensors: the attachment suites build real safetensors fixtures,
+        # and both local distributions are installed with --no-deps.
+        run: python -m pip install --upgrade pip setuptools wheel build pytest packaging ruff twine jsonschema numpy safetensors
       - name: Install both local distributions
         run: |
           python -m pip install -e . --no-deps --no-build-isolation

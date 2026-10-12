@@ -70,7 +70,25 @@ def test_admits_a_verified_attachment(tmp_path: Path):
     assert attachment.has_prefix(QKV) is True
     assert attachment.has_prefix("model.layers.0.self_attn.o_proj") is False
     assert attachment.norm_modules() == ["model.layers.0.input_layernorm"]
-    assert attachment.open_tensor(f"{QKV}.col_scale").shape == (4,)
+
+
+def test_an_admitted_tensor_reads_back(tmp_path: Path):
+    """``open_tensor`` reads the file through the safetensors ``pt`` framework.
+
+    Admission above never imports torch, so this is the only assertion in the
+    module that needs the host's tensor runtime: it skips on the torch-free CI
+    runner, and the factored path stays covered by the NPU gate record.
+    """
+
+    torch = pytest.importorskip(
+        "torch", reason="open_tensor reads the attachment through the safetensors pt framework"
+    )
+    attachment = validate_attachment(_write_attachment(tmp_path))
+
+    tensor = attachment.open_tensor(f"{QKV}.col_scale")
+
+    assert tuple(tensor.shape) == (4,)
+    assert tensor.dtype == torch.float32
 
 
 def test_unverified_attachment_fails_closed(tmp_path: Path):

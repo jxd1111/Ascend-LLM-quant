@@ -31,7 +31,9 @@ jobs:
       - name: Install build and verification dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build packaging pytest ruff setuptools twine wheel jsonschema
+          # numpy/safetensors: the attachment suite writes real safetensors
+          # fixtures and both distributions are installed with --no-deps.
+          python -m pip install build packaging pytest ruff setuptools twine wheel jsonschema numpy safetensors
 
       - name: Install both local distributions
         run: |

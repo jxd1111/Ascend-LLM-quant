@@ -8,7 +8,6 @@ import types
 from pathlib import Path
 
 import pytest
-import torch
 
 from vllm_ascend_quant_ext.attachment import (
     COL_SUFFIX,
@@ -18,6 +17,15 @@ from vllm_ascend_quant_ext.attachment import (
 )
 
 MODULE_NAME = "vllm_ascend_quant_ext.schemes.online_w8a8"
+
+# The extension imports torch lazily inside each method - the host provides it -
+# and the CI/publish jobs install no torch, vLLM or vLLM-Ascend.  Every assertion
+# below replays real torch tensors, so the module skips as a whole on a torch-free
+# runner; the import-free admission half stays covered everywhere by
+# `test_online_attachment.py` and the tensor half by the frozen-host NPU gate.
+torch = pytest.importorskip(
+    "torch", reason="the ONLINE replay assertions build and check real torch tensors"
+)
 
 
 class _NativeDynamic:

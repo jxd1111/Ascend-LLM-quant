@@ -46,6 +46,12 @@
   `vllm_ascend_quant_ext/schemes/online_w8a8.py` is missing from the wheel or the
   sdist, so a build that predates the ONLINE path can never be published as the
   release that claims it.
+- Make the release jobs self-sufficient for the ONLINE suites: every job that
+  runs the unit tests now installs `numpy` and `safetensors` (both distributions
+  are installed with `--no-deps`, so nothing else can pull them in), and the
+  ONLINE replay suite skips through `pytest.importorskip` when no torch runtime is
+  present, so a torch-free runner reports a visible skip instead of a collection
+  error.
 
 ## ascend-quant-toolkit 0.4.2 - 2026-10-12
 
