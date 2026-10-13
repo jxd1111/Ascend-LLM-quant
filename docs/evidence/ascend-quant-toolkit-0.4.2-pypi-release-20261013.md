@@ -52,6 +52,24 @@ performance or accuracy claim.
   [38358286519](https://github.com/jxd1111/Ascend-LLM-quant/actions/runs/38358286519), run_number 1,
   `head_sha 50ba3f8`, conclusion **success**.
 
+- `Build and verify distributions` (attempt 1): completed / **success**
+  - 1. Set up job: completed / success
+  - 2. Check out the released revision: completed / success
+  - 3. Set up Python: completed / success
+  - 4. Install build and verification dependencies: completed / success
+  - 5. Install both local distributions: completed / success
+  - 6. Verify the release tag matches the package version: completed / success
+  - 7. Run offline Toolkit tests: completed / success
+  - 8. Lint Python sources: completed / success
+  - 9. Build the Toolkit wheel and sdist: completed / success
+  - 10. Check distribution metadata: completed / success
+  - 11. Verify the distributions carry the Toolkit only: completed / success
+  - 12. Install the built wheel in an isolated environment: completed / success
+  - 13. Upload verified distributions: completed / success
+  - 25. Post Set up Python: completed / success
+  - 26. Post Check out the released revision: completed / success
+  - 27. Complete job: completed / success
+- `Publish distributions to PyPI` (attempt 1): completed / **failure**
 - `Publish distributions to PyPI` (attempt 2): completed / **success**
   - 1. Set up job: completed / success
   - 2. Download verified distributions: completed / success
@@ -90,16 +108,17 @@ performance or accuracy claim.
   (`protected_branches=false`, `custom_branch_policies=true`), so a deployment is
   admitted only for a ref that matches an entry of that allow-list. The
   `toolkit-v*` tag namespace was not on it when the Release was first published.
-- The first attempt (run
+- Attempt 1 (run
   [38358286519](https://github.com/jxd1111/Ascend-LLM-quant/actions/runs/38358286519), created 2026-10-13T06:43:05Z) passed the
-  whole `Build and verify distributions` job and then was rejected before the
+  whole `Build and verify distributions` job and was then rejected before the
   upload job ran a single step:
-  not recorded
+  Tag "toolkit-v0.4.2" is not allowed to deploy to pypi due to environment protection rules. The deployment was rejected or didn't satisfy other protection rules.
 - Nothing was uploaded by the rejected attempt, so the version was never burned:
   `https://pypi.org/pypi/ascend-quant-toolkit/json` answered `404` while PyPI held no
-  ascend-quant-toolkit distribution at all. The fix was to extend the environment's
+  `ascend-quant-toolkit` distribution at all. The fix was to extend the environment's
   deployment allow-list with the `toolkit-v*` tag pattern; the tag, the Release
-  and the verified artifact were left untouched, and the failed job was re-run.
+  and the verified artifact were left untouched, and the rejected job was re-run
+  as attempt 2.
 
 ## Cleanup and lifecycle
 
